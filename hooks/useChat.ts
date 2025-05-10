@@ -1,6 +1,7 @@
 'use client';
+import { useState } from 'react';
+import axios from 'axios';
 import { useChatStore } from '@/lib/store';
-import { sendMessageToAI } from '@/lib/ai-service';
 
 export function useChat() {
   const {
@@ -33,8 +34,12 @@ export function useChat() {
     setError(null);
 
     try {
-      const response = await sendMessageToAI(text, messages);
-      addMessage(response, 'ai');
+      const response = await axios.post('/api/chat', {
+        message: text,
+        history: messages,
+      });
+
+      addMessage(response.data.response, 'ai');
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to get AI response'
