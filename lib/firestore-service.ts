@@ -9,7 +9,7 @@ import {
   orderBy,
   deleteDoc,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { clientDb } from './firebase';
 import { ChatSession, Message } from './types';
 
 // Chat Sessions
@@ -24,7 +24,10 @@ export async function createChatSession(
     updatedAt: Date.now(),
   };
 
-  const docRef = await addDoc(collection(db, 'chatSessions'), sessionData);
+  const docRef = await addDoc(
+    collection(clientDb, 'chatSessions'),
+    sessionData
+  );
   return docRef.id;
 }
 
@@ -32,7 +35,7 @@ export async function updateChatSession(
   sessionId: string,
   data: Partial<ChatSession>
 ): Promise<void> {
-  const sessionRef = doc(db, 'chatSessions', sessionId);
+  const sessionRef = doc(clientDb, 'chatSessions', sessionId);
   await updateDoc(sessionRef, { ...data, updatedAt: Date.now() });
 }
 
@@ -40,7 +43,7 @@ export async function getUserChatSessions(
   userId: string
 ): Promise<ChatSession[]> {
   const sessionsQuery = query(
-    collection(db, 'chatSessions'),
+    collection(clientDb, 'chatSessions'),
     where('userId', '==', userId),
     orderBy('updatedAt', 'desc')
   );
@@ -52,11 +55,11 @@ export async function getUserChatSessions(
 }
 
 export async function deleteChatSession(sessionId: string): Promise<void> {
-  await deleteDoc(doc(db, 'chatSessions', sessionId));
+  await deleteDoc(doc(clientDb, 'chatSessions', sessionId));
 
   // Also delete all messages for this session
   const messagesQuery = query(
-    collection(db, 'messages'),
+    collection(clientDb, 'messages'),
     where('sessionId', '==', sessionId)
   );
 
@@ -75,7 +78,7 @@ export async function addMessageToSession(
     sessionId,
   };
 
-  const docRef = await addDoc(collection(db, 'messages'), messageData);
+  const docRef = await addDoc(collection(clientDb, 'messages'), messageData);
 
   // Update the session's updatedAt timestamp
   await updateChatSession(sessionId, { updatedAt: Date.now() });
@@ -87,7 +90,7 @@ export async function getSessionMessages(
   sessionId: string
 ): Promise<Message[]> {
   const messagesQuery = query(
-    collection(db, 'messages'),
+    collection(clientDb, 'messages'),
     where('sessionId', '==', sessionId),
     orderBy('timestamp', 'asc')
   );

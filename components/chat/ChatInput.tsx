@@ -4,9 +4,14 @@ import React, { useState } from 'react';
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }
 
-const ChatInput = ({ onSendMessage, disabled = false }: ChatInputProps) => {
+const ChatInput = ({
+  onSendMessage,
+  disabled = false,
+  placeholder,
+}: ChatInputProps) => {
   const [input, setInput] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -24,7 +29,7 @@ const ChatInput = ({ onSendMessage, disabled = false }: ChatInputProps) => {
           type='text'
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder='Type your message...'
+          placeholder={placeholder || 'Type your message...'}
           disabled={disabled}
           className='flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500'
           data-testid='chat-input'

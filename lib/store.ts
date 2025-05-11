@@ -10,6 +10,8 @@ import {
   getSessionMessages,
 } from './firestore-service';
 
+const DEV_USER_ID = 'dev-user-123';
+
 interface ChatState {
   sessions: ChatSession[];
   currentSessionId: string | null;
@@ -39,15 +41,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentSessionId: null,
   loading: false,
   error: null,
-  userId: null,
+  userId: DEV_USER_ID,
 
   setUserId: (userId) => {
-    set({ userId });
-    if (userId) {
-      get().fetchSessions();
-    } else {
-      set({ sessions: [], currentSessionId: null });
-    }
+    // Allow manual override but fall back to dev ID if null is passed
+    set({ userId: userId || DEV_USER_ID });
+    get().fetchSessions();
   },
 
   fetchSessions: async () => {
