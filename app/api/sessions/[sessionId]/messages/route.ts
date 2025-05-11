@@ -1,0 +1,119 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth } from '@/lib/firebase-admin';
+import {
+  addMessageToSession,
+  getSessionMessages,
+} from '@/lib/firestore-service';
+import { sendMessageToAI } from '@/lib/ai-service';
+
+// Helper function to authenticate requests
+async function authenticateRequest(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    return decodedToken.uid;
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return null;
+  }
+}
+
+// GET /api/sessions/[sessionId]/messages - Get messages for a session
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { sessionId: string } }
+) {
+  try {
+    const userId = await authenticateRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { sessionId } = params;
+    const messages = await getSessionMessages(sessionId);
+
+    return NextResponse.json({ messages });
+  } catch (error) {
+    console.error('Messages API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch messages' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/sessions/[sessionId]/messages - Add a message and get AI response
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { sessionId: string } }
+) {
+  try {
+    const userId = await authenticateRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { sessionId } = params;
+    // pass options if needed
+    const { text } = await request.json();
+
+    if (!text) {
+      return NextResponse.json(
+        { error: 'Message text is required' },
+        { status: 400 }
+      );
+    }
+
+    // Store user message
+    const timestamp = Date.now();
+    const userMessageId = await addMessageToSession(sessionId, {
+      text,
+      sender: 'user',
+      timestamp,
+    });
+
+    // Get existing conversation history
+    const existingMessages = await getSessionMessages(sessionId);
+
+    // Get AI response
+    const aiResponseText = await sendMessageToAI(
+      text,
+      existingMessages
+      //   options // Optional: pass options if needed
+    );
+
+    // Store AI response
+    const aiTimestamp = Date.now();
+    const aiMessageId = await addMessageToSession(sessionId, {
+      text: aiResponseText,
+      sender: 'ai',
+      timestamp: aiTimestamp,
+    });
+
+    return NextResponse.json({
+      userMessage: {
+        id: userMessageId,
+        text,
+        sender: 'user',
+        timestamp,
+      },
+      aiMessage: {
+        id: aiMessageId,
+        text: aiResponseText,
+        sender: 'ai',
+        timestamp: aiTimestamp,
+      },
+    });
+  } catch (error) {
+    console.error('Messages API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to process message' },
+      { status: 500 }
+    );
+  }
+}
