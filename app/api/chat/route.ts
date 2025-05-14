@@ -1,23 +1,28 @@
-import { NextResponse } from 'next/server';
-import { sendMessageToAI } from '@/lib/ai-service';
+import { NextRequest } from 'next/server';
+import { processChat, processChatStream } from '@/lib/ai/server';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { message, history } = await request.json();
+    const { message, history, streaming = true } = await request.json();
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
+      return Response.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    const aiResponse = await sendMessageToAI(message, history || []);
+    // Get app context from headers or body
+    const appContext = request.headers.get('x-app-context') || undefined;
 
-    return NextResponse.json({ response: aiResponse });
+    if (streaming) {
+      // Return streaming response
+      return processChatStream(message, history || [], appContext);
+    } else {
+      // Return standard response
+      const aiResponse = await processChat(message, history || [], appContext);
+      return Response.json({ response: aiResponse });
+    }
   } catch (error) {
     console.error('Chat API error:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Failed to process chat request' },
       { status: 500 }
     );
