@@ -10,7 +10,8 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { clientDb } from './firebase';
-import { ChatSession, Message } from './types';
+import { Message } from '@ai-sdk/react';
+import { ChatSession } from './types';
 
 // Chat Sessions
 export async function createChatSession(
@@ -49,9 +50,21 @@ export async function getUserChatSessions(
   );
 
   const snapshot = await getDocs(sessionsQuery);
-  return snapshot.docs.map(
-    (doc) => ({ id: doc.id, ...doc.data() } as ChatSession)
-  );
+
+  // Convert to ChatSession array with correct typing
+  const sessions = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      title: data.title,
+      userId: data.userId,
+      messages: [],
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } as ChatSession;
+  });
+
+  return sessions;
 }
 
 export async function deleteChatSession(sessionId: string): Promise<void> {
@@ -73,14 +86,16 @@ export async function addMessageToSession(
   sessionId: string,
   message: Omit<Message, 'id'>
 ): Promise<string> {
+  // Standard Message fields
   const messageData = {
     ...message,
     sessionId,
+    timestamp: Date.now(),
   };
 
   const docRef = await addDoc(collection(clientDb, 'messages'), messageData);
 
-  // Update the session's updatedAt timestamp
+  // Update the session
   await updateChatSession(sessionId, { updatedAt: Date.now() });
 
   return docRef.id;

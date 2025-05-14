@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { Message, ChatSession } from './types';
+import type { Message } from 'ai';
 import {
   createChatSession,
   updateChatSession,
@@ -11,6 +11,15 @@ import {
 } from './firestore-service';
 
 const DEV_USER_ID = 'dev-user-123';
+
+// Update ChatSession to use AI SDK Message type
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: number;
+  updatedAt: number;
+}
 
 interface ChatState {
   sessions: ChatSession[];
@@ -29,23 +38,14 @@ interface ChatState {
   deleteSession: (sessionId: string) => Promise<void>;
 
   // Message management
-  addMessage: (text: string, sender: 'user' | 'ai') => Promise<void>;
+  addMessage: (
+    content: string,
+    role: 'user' | 'assistant' | 'system'
+  ) => Promise<void>;
 
   // UI state
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
-
-  // AI SDK message conversion
-  toAISDKMessage: (message: Message) => {
-    id: string;
-    role: string;
-    content: string;
-  };
-  fromAISDKMessage: (message: {
-    id?: string;
-    role: string;
-    content: string;
-  }) => Message;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -69,7 +69,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     try {
       const sessions = await getUserChatSessions(userId);
-      set({ sessions });
+      // Convert sessions to match the store's ChatSession interface with ai SDK Message type
+      const convertedSessions: ChatSession[] = sessions.map((session) => ({
+        id: session.id,
+        title: session.title,
+        messages: session.messages.map((msg) => ({
+          id: msg.id,
+          content: msg.content || '',
+          role: msg.role || 'user',
+          createdAt: msg.createdAt,
+        })),
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      }));
+      set({ sessions: convertedSessions });
 
       // Set current session to the most recent one if none is selected
       if (sessions.length > 0 && !get().currentSessionId) {
@@ -165,35 +178,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  // Modify addMessage to work with AI SDK format
+  // Updated to use AI SDK Message format directly
   addMessage: async (
-    textOrContent: string,
-    senderOrRole: 'user' | 'ai' | 'assistant' | 'system'
+    content: string,
+    role: 'user' | 'assistant' | 'system'
   ) => {
     const { currentSessionId, userId } = get();
     if (!currentSessionId || !userId) return;
 
     const timestamp = Date.now();
 
-    // Normalize sender/role to match your app's format
-    const sender =
-      senderOrRole === 'assistant' || senderOrRole === 'system' ? 'ai' : 'user';
-    const text = textOrContent;
-
     try {
-      // Rest of the function remains the same
-      const messageId = await addMessageToSession(currentSessionId, {
-        text,
-        sender,
-        timestamp,
-      });
-
-      const newMessage: Message = {
-        id: messageId,
-        text,
-        sender,
-        timestamp,
+      // Create message in AI SDK format
+      const message: Message = {
+        id: uuidv4(),
+        role,
+        content,
+        // Convert timestamp to Date object as required by Message type
+        createdAt: new Date(timestamp),
       };
+
+      // Add to Firestore (you'll need to update this function to accept AI SDK format)
+      const messageId = await addMessageToSession(currentSessionId, message);
+
+      // Update id if Firestore generated a new one
+      message.id = messageId || message.id;
 
       // Update local state
       set((state) => {
@@ -203,8 +212,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Update session title if this is the first user message
         let title = currentSession?.title || 'New Chat';
-        if (currentSession?.messages.length === 0 && sender === 'user') {
-          title = text.slice(0, 30) + (text.length > 30 ? '...' : '');
+        if (currentSession?.messages.length === 0 && role === 'user') {
+          title = content.slice(0, 30) + (content.length > 30 ? '...' : '');
           // Update title in Firestore
           updateChatSession(currentSessionId, { title });
         }
@@ -215,7 +224,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ? {
                   ...session,
                   title,
-                  messages: [...(session.messages || []), newMessage],
+                  messages: [...(session.messages || []), message],
                   updatedAt: timestamp,
                 }
               : session
@@ -235,17 +244,4 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setError: (error) => {
     set({ error });
   },
-
-  toAISDKMessage: (message) => ({
-    id: message.id,
-    role: message.sender === 'user' ? 'user' : 'assistant',
-    content: message.text,
-  }),
-
-  fromAISDKMessage: (message) => ({
-    id: message.id || uuidv4(),
-    text: message.content,
-    sender: message.role === 'user' ? 'user' : 'ai',
-    timestamp: Date.now(),
-  }),
 }));

@@ -41,7 +41,7 @@ export function useChat() {
     },
     onFinish: (message) => {
       // Save to Firestore via your store
-      addMessage(message.content, 'ai');
+      addMessage(message.content, 'assistant');
       // Set loading state to false when the AI response is complete
       setLoading(false);
     },

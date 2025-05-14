@@ -1,10 +1,4 @@
-export interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai';
-  timestamp: number;
-}
-
+import { Message } from 'ai';
 export interface ChatSession {
   id: string;
   title: string;
