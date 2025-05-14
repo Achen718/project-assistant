@@ -1,7 +1,10 @@
 import { ChatOpenAI } from '@langchain/openai';
 // import { ChatAnthropic } from '@langchain/anthropic';
 
-// Create model instances with configurable options
+/**
+ * Creates a LangChain model instance for use with chains, agents and tools.
+ * Note: For streaming responses with the Vercel AI SDK, use the openai() function instead.
+ */
 export function createChatModel(
   modelName: string,
   apiKey?: string,

@@ -82,11 +82,11 @@ export async function deleteChatSession(sessionId: string): Promise<void> {
 }
 
 // Messages
+// Option 2: Let Firestore generate ID but update the message object
 export async function addMessageToSession(
   sessionId: string,
-  message: Omit<Message, 'id'>
+  message: Omit<Message, 'id'> // Keep as is
 ): Promise<string> {
-  // Standard Message fields
   const messageData = {
     ...message,
     sessionId,
@@ -94,11 +94,12 @@ export async function addMessageToSession(
   };
 
   const docRef = await addDoc(collection(clientDb, 'messages'), messageData);
+  const id = docRef.id;
 
   // Update the session
   await updateChatSession(sessionId, { updatedAt: Date.now() });
 
-  return docRef.id;
+  return id;
 }
 
 export async function getSessionMessages(
