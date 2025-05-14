@@ -72,9 +72,9 @@ export async function POST(
     // Store user message
     const timestamp = Date.now();
     const userMessageId = await addMessageToSession(sessionId, {
-      text,
-      sender: 'user',
-      timestamp,
+      content: text,
+      role: 'user',
+      createdAt: new Date(timestamp),
     });
 
     // Get existing conversation history
@@ -90,22 +90,22 @@ export async function POST(
     // Store AI response
     const aiTimestamp = Date.now();
     const aiMessageId = await addMessageToSession(sessionId, {
-      text: aiResponseText,
-      sender: 'ai',
-      timestamp: aiTimestamp,
+      content: aiResponseText,
+      role: 'assistant',
+      createdAt: new Date(aiTimestamp),
     });
 
     return NextResponse.json({
       userMessage: {
         id: userMessageId,
-        text,
+        content: text,
         sender: 'user',
         timestamp,
       },
       aiMessage: {
         id: aiMessageId,
-        text: aiResponseText,
-        sender: 'ai',
+        content: aiResponseText,
+        sender: 'assistant',
         timestamp: aiTimestamp,
       },
     });

@@ -10,15 +10,14 @@ export async function sendMessageToAI(
 ): Promise<string> {
   try {
     // Format conversation history for the API
-    const formattedHistory = conversationHistory.map((msg) => ({
-      role: msg.sender === 'user' ? 'user' : 'assistant',
-      content: msg.text,
-    }));
-
     // Add the current user message
     const messages = [
-      ...formattedHistory,
-      { role: 'user', content: userMessage },
+      // add id if needed
+      ...conversationHistory.map(({ role, content }) => ({
+        role,
+        content,
+      })),
+      { role: 'user' as const, content: userMessage },
     ];
 
     const response = await axios.post(

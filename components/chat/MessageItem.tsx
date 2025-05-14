@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 import { Message } from '@/lib/types';
 
 interface MessageItemProps {
@@ -15,10 +14,10 @@ const MessageItem = ({ message, isAI }: MessageItemProps) => {
           isAI ? 'bg-gray-100' : 'bg-blue-500 text-white'
         }`}
       >
-        <p className='text-sm'>{message.text}</p>
-        <span className='text-xs text-gray-500 block mt-1'>
+        <p className='text-sm'>{message.content}</p>
+        {/* <span className='text-xs text-gray-500 block mt-1'>
           {new Date(message.timestamp).toLocaleTimeString()}
-        </span>
+        </span> */}
       </div>
     </div>
   );

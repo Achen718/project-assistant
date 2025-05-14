@@ -1,12 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Message } from '@/lib/types';
-
-export interface ChatSession {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-}
+import { Message, ChatSession } from '@/lib/types';
 
 export interface AIAssistantClientOptions {
   apiUrl: string;
@@ -56,10 +49,10 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       const data = await response.json();
 
       return {
-        id: data.id,
-        text: data.response,
-        sender: 'ai',
-        timestamp: data.timestamp,
+        id: data.id || uuidv4(),
+        role: 'assistant',
+        content: data.response || data.content,
+        createdAt: data.timestamp || Date.now(),
       };
     },
 
@@ -101,14 +94,14 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
 
     sendMessageToSession: async (
       sessionId: string,
-      text: string
+      content: string
     ): Promise<{
       userMessage: Message;
       aiMessage: Message;
     }> => {
       const response = await fetchWithAuth(`/sessions/${sessionId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ content }),
       });
 
       if (!response.ok) {
@@ -192,9 +185,9 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       // Return complete message
       return {
         id: uuidv4(),
-        text: fullText,
-        sender: 'ai',
-        timestamp: Date.now(),
+        role: 'assistant',
+        content: fullText,
+        createdAt: new Date(),
       };
     },
   };

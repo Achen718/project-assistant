@@ -35,9 +35,9 @@ const AIChatComponent: React.FC<AIChatComponentProps> = ({
     // Create user message
     const userMessage: Message = {
       id: uuidv4(),
-      text,
-      sender: 'user',
-      timestamp: Date.now(),
+      role: 'user',
+      content: text,
+      createdAt: new Date(),
     };
 
     // Add user message to state
@@ -77,9 +77,9 @@ const AIChatComponent: React.FC<AIChatComponentProps> = ({
       // Create AI message
       const aiMessage: Message = {
         id: data.id || uuidv4(),
-        text: data.response,
-        sender: 'ai',
-        timestamp: data.timestamp || Date.now(),
+        role: 'assistant',
+        content: data.response,
+        createdAt: new Date(data.timestamp || Date.now()),
       };
 
       // Add AI message to state
