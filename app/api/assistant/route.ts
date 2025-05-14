@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendMessageToAI } from '@/lib/ai-service';
+import { processChat, processChatStream } from '@/lib/ai/server';
 import { adminAuth } from '@/lib/firebase-admin';
 
 // Authenticate API requests
@@ -26,8 +26,9 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // pass options to the AI service if needed
-    const { message, history } = await request.json();
+
+    // Add support for streaming parameter
+    const { message, history, streaming } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -36,18 +37,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Process the message with the AI service
-    const aiResponse = await sendMessageToAI(
-      message,
-      history || []
-      // options can be used to pass additional parameters to the AI service
-    );
+    // Get context from headers if available
+    const appContext = request.headers.get('x-app-context') || 'assistant';
 
-    return NextResponse.json({
-      id: crypto.randomUUID(),
-      response: aiResponse,
-      timestamp: Date.now(),
-    });
+    // Handle streaming vs. non-streaming
+    if (streaming) {
+      const stream = await processChatStream(
+        message,
+        history || [],
+        appContext
+      );
+      // Return the stream directly
+      return stream;
+    } else {
+      // Process normally for non-streaming requests
+      const aiResponse = await processChat(message, history || [], appContext);
+
+      return NextResponse.json({
+        id: crypto.randomUUID(),
+        content: aiResponse, // Changed from response to content for consistency
+        role: 'assistant', // Changed from undefined to role for consistency
+        timestamp: Date.now(),
+      });
+    }
   } catch (error) {
     console.error('Assistant API error:', error);
     return NextResponse.json(

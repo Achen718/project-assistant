@@ -4,7 +4,7 @@ import {
   addMessageToSession,
   getSessionMessages,
 } from '@/lib/firestore-service';
-import { sendMessageToAI } from '@/lib/ai-service';
+import { processChat } from '@/lib/ai/server';
 
 // Helper function to authenticate requests
 async function authenticateRequest(request: NextRequest) {
@@ -59,12 +59,11 @@ export async function POST(
     }
 
     const { sessionId } = params;
-    // pass options if needed
-    const { text } = await request.json();
+    const { content } = await request.json();
 
-    if (!text) {
+    if (!content) {
       return NextResponse.json(
-        { error: 'Message text is required' },
+        { error: 'Message content is required' },
         { status: 400 }
       );
     }
@@ -72,7 +71,7 @@ export async function POST(
     // Store user message
     const timestamp = Date.now();
     const userMessageId = await addMessageToSession(sessionId, {
-      content: text,
+      content,
       role: 'user',
       createdAt: new Date(timestamp),
     });
@@ -81,11 +80,15 @@ export async function POST(
     const existingMessages = await getSessionMessages(sessionId);
 
     // Get AI response
-    const aiResponseText = await sendMessageToAI(
-      text,
-      existingMessages
-      //   options // Optional: pass options if needed
+    const aiResponse = await processChat(
+      content,
+      existingMessages,
+      'session-assistant'
     );
+
+    // Convert AI response to string if it's a complex object
+    const aiResponseText =
+      typeof aiResponse === 'string' ? aiResponse : JSON.stringify(aiResponse);
 
     // Store AI response
     const aiTimestamp = Date.now();
@@ -98,14 +101,14 @@ export async function POST(
     return NextResponse.json({
       userMessage: {
         id: userMessageId,
-        content: text,
-        sender: 'user',
+        content,
+        role: 'user',
         timestamp,
       },
       aiMessage: {
         id: aiMessageId,
         content: aiResponseText,
-        sender: 'assistant',
+        role: 'assistant',
         timestamp: aiTimestamp,
       },
     });

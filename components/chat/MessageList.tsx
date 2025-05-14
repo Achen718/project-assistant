@@ -21,7 +21,7 @@ const MessageList = ({ messages, loading = false }: MessageListProps) => {
         <MessageItem
           key={message.id}
           message={message}
-          isAI={message.sender === 'ai'}
+          isAI={message.role === 'assistant'}
         />
       ))}
       {loading && (
