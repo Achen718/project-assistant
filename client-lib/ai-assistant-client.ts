@@ -1,9 +1,5 @@
-export interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai';
-  timestamp: number;
-}
+import { v4 as uuidv4 } from 'uuid';
+import { Message } from '@/lib/types';
 
 export interface ChatSession {
   id: string;
@@ -15,23 +11,22 @@ export interface ChatSession {
 export interface AIAssistantClientOptions {
   apiUrl: string;
   apiKey: string;
+  appContext?: string;
 }
 
-export class AIAssistantClient {
-  private apiUrl: string;
-  private apiKey: string;
+export function createAIAssistant(options: AIAssistantClientOptions) {
+  // Initialize configuration
+  const apiUrl = options.apiUrl.endsWith('/')
+    ? options.apiUrl.slice(0, -1)
+    : options.apiUrl;
+  const apiKey = options.apiKey;
+  const appContext = options.appContext;
 
-  constructor(options: AIAssistantClientOptions) {
-    this.apiUrl = options.apiUrl.endsWith('/')
-      ? options.apiUrl.slice(0, -1)
-      : options.apiUrl;
-    this.apiKey = options.apiKey;
-  }
-
-  private async fetchWithAuth(endpoint: string, options?: RequestInit) {
-    const url = `${this.apiUrl}${endpoint}`;
+  // Private utility function
+  const fetchWithAuth = async (endpoint: string, options?: RequestInit) => {
+    const url = `${apiUrl}${endpoint}`;
     const headers = {
-      Authorization: `Bearer ${this.apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       ...(options?.headers || {}),
     };
@@ -40,113 +35,167 @@ export class AIAssistantClient {
       ...options,
       headers,
     });
-  }
+  };
 
-  // Send a message to the AI assistant
-  async sendMessage(
-    message: string,
-    history: Message[] = []
-  ): Promise<Message> {
-    const response = await this.fetchWithAuth('/assistant', {
-      method: 'POST',
-      body: JSON.stringify({ message, history }),
-    });
+  // Return the client interface
+  return {
+    // Send a message to the AI assistant
+    sendMessage: async (
+      message: string,
+      history: Message[] = []
+    ): Promise<Message> => {
+      const response = await fetchWithAuth('/assistant', {
+        method: 'POST',
+        body: JSON.stringify({ message, history }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
 
-    const data = await response.json();
+      const data = await response.json();
 
-    return {
-      id: data.id,
-      text: data.response,
-      sender: 'ai',
-      timestamp: data.timestamp,
-    };
-  }
+      return {
+        id: data.id,
+        text: data.response,
+        sender: 'ai',
+        timestamp: data.timestamp,
+      };
+    },
 
-  // Session management
-  async getSessions(): Promise<ChatSession[]> {
-    const response = await this.fetchWithAuth('/sessions');
+    // Session management
+    getSessions: async (): Promise<ChatSession[]> => {
+      const response = await fetchWithAuth('/sessions');
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
 
-    const data = await response.json();
-    return data.sessions;
-  }
+      const data = await response.json();
+      return data.sessions;
+    },
 
-  async createSession(title?: string): Promise<ChatSession> {
-    const response = await this.fetchWithAuth('/sessions', {
-      method: 'POST',
-      body: JSON.stringify({ title }),
-    });
+    createSession: async (title?: string): Promise<ChatSession> => {
+      const response = await fetchWithAuth('/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ title }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
 
-    return response.json();
-  }
+      return response.json();
+    },
 
-  async getSessionMessages(sessionId: string): Promise<Message[]> {
-    const response = await this.fetchWithAuth(
-      `/sessions/${sessionId}/messages`
-    );
+    getSessionMessages: async (sessionId: string): Promise<Message[]> => {
+      const response = await fetchWithAuth(`/sessions/${sessionId}/messages`);
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
 
-    const data = await response.json();
-    return data.messages;
-  }
+      const data = await response.json();
+      return data.messages;
+    },
 
-  async sendMessageToSession(
-    sessionId: string,
-    text: string
-  ): Promise<{
-    userMessage: Message;
-    aiMessage: Message;
-  }> {
-    const response = await this.fetchWithAuth(
-      `/sessions/${sessionId}/messages`,
-      {
+    sendMessageToSession: async (
+      sessionId: string,
+      text: string
+    ): Promise<{
+      userMessage: Message;
+      aiMessage: Message;
+    }> => {
+      const response = await fetchWithAuth(`/sessions/${sessionId}/messages`, {
         method: 'POST',
         body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
+      return response.json();
+    },
 
-    return response.json();
-  }
+    updateSession: async (
+      sessionId: string,
+      data: Partial<ChatSession>
+    ): Promise<void> => {
+      const response = await fetchWithAuth(`/sessions/${sessionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
 
-  async updateSession(
-    sessionId: string,
-    data: Partial<ChatSession>
-  ): Promise<void> {
-    const response = await this.fetchWithAuth(`/sessions/${sessionId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+    },
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-  }
+    deleteSession: async (sessionId: string): Promise<void> => {
+      const response = await fetchWithAuth(`/sessions/${sessionId}`, {
+        method: 'DELETE',
+      });
 
-  async deleteSession(sessionId: string): Promise<void> {
-    const response = await this.fetchWithAuth(`/sessions/${sessionId}`, {
-      method: 'DELETE',
-    });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+    },
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-  }
+    // streaming method
+    streamMessage: async (
+      message: string,
+      history: Message[] = [],
+      onChunk: (chunk: string) => void
+    ): Promise<Message> => {
+      const headers: HeadersInit = {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      };
+
+      if (appContext) {
+        headers['x-app-context'] = appContext;
+      }
+
+      const response = await fetch(`${apiUrl}/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ message, history, streaming: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      // Process the stream
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is null');
+
+      let fullText = '';
+
+      // Create decoder for stream
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          fullText += chunk;
+          onChunk(chunk);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Return complete message
+      return {
+        id: uuidv4(),
+        text: fullText,
+        sender: 'ai',
+        timestamp: Date.now(),
+      };
+    },
+  };
 }
