@@ -34,6 +34,18 @@ interface ChatState {
   // UI state
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
+
+  // AI SDK message conversion
+  toAISDKMessage: (message: Message) => {
+    id: string;
+    role: string;
+    content: string;
+  };
+  fromAISDKMessage: (message: {
+    id?: string;
+    role: string;
+    content: string;
+  }) => Message;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -153,14 +165,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  addMessage: async (text, sender) => {
-    const { currentSessionId, sessions, userId } = get();
+  // Modify addMessage to work with AI SDK format
+  addMessage: async (
+    textOrContent: string,
+    senderOrRole: 'user' | 'ai' | 'assistant' | 'system'
+  ) => {
+    const { currentSessionId, userId } = get();
     if (!currentSessionId || !userId) return;
 
     const timestamp = Date.now();
 
+    // Normalize sender/role to match your app's format
+    const sender =
+      senderOrRole === 'assistant' || senderOrRole === 'system' ? 'ai' : 'user';
+    const text = textOrContent;
+
     try {
-      // Add message to Firestore
+      // Rest of the function remains the same
       const messageId = await addMessageToSession(currentSessionId, {
         text,
         sender,
@@ -214,4 +235,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setError: (error) => {
     set({ error });
   },
+
+  toAISDKMessage: (message) => ({
+    id: message.id,
+    role: message.sender === 'user' ? 'user' : 'assistant',
+    content: message.text,
+  }),
+
+  fromAISDKMessage: (message) => ({
+    id: message.id || uuidv4(),
+    text: message.content,
+    sender: message.role === 'user' ? 'user' : 'ai',
+    timestamp: Date.now(),
+  }),
 }));
