@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:direct": "node direct-integration-test.js"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.22",
