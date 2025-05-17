@@ -16,7 +16,7 @@ export interface AIChatComponentProps {
   onResponseReceived?: (message: Message) => void;
 }
 
-const AIChatComponent: React.FC<AIChatComponentProps> = ({
+const AIChatComponent = ({
   apiKey,
   apiEndpoint = '/api/assistant',
   initialMessages = [],
@@ -24,7 +24,7 @@ const AIChatComponent: React.FC<AIChatComponentProps> = ({
   className = '',
   onMessageSent,
   onResponseReceived,
-}) => {
+}: AIChatComponentProps) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
