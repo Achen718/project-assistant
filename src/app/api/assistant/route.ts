@@ -28,7 +28,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     // Add support for streaming parameter
-    const { message, history, streaming } = await request.json();
+    const { message, history, streaming, projectId } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -45,7 +45,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       const stream = await processChatStream(
         message,
         history || [],
-        appContext
+        appContext,
+        projectId
       );
 
       // Return the stream with explicit type assertion
@@ -57,7 +58,12 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     } else {
       // Process normally for non-streaming requests
-      const aiResponse = await processChat(message, history || [], appContext);
+      const aiResponse = await processChat(
+        message,
+        history || [],
+        appContext,
+        projectId
+      );
 
       return NextResponse.json({
         id: crypto.randomUUID(),

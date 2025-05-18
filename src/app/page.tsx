@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import ChatContainer from '@/components/chat/ChatContainer';
-import { useChat } from '@/hooks/useChat';
+import { useChat } from '@/app/hooks/useChat';
 import { useChatStore } from '@/lib/store';
 
 export default function Home() {

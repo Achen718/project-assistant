@@ -1,25 +1,25 @@
 // Re-export all the components and types
-export { default as AIChatComponent } from '../components/chat/AIChatComponent';
-export { default as MessageList } from '../components/chat/MessageList';
-export { default as MessageItem } from '../components/chat/MessageItem';
-export { default as ChatInput } from '../components/chat/ChatInput';
+export { default as AIChatComponent } from '../src/components/chat/AIChatComponent';
+export { default as MessageList } from '../src/components/chat/MessageList';
+export { default as MessageItem } from '../src/components/chat/MessageItem';
+export { default as ChatInput } from '../src/components/chat/ChatInput';
 
 // Export client functions
-export { createAIAssistant } from '../client-lib/ai-assistant-client';
-export type { AIAssistantClientOptions } from '../client-lib/ai-assistant-client';
+export { createAIAssistant } from '../src/client-lib/ai-assistant-client';
+export type { AIAssistantClientOptions } from '../src/client-lib/ai-assistant-client';
 
 // Export types
-export type { Message, ChatSession } from '../lib/types';
+export type { Message, ChatSession } from '../src/lib/types';
 
 // Export analyzer
-export { analyzeProject } from '../lib/analyzer';
+export { analyzeProject } from '../src/lib/analyzer';
 export type {
   ProjectContext,
   Technology,
   CodePattern,
   ArchitecturalPattern,
   AnalyzerResult,
-} from '../lib/analyzer';
+} from '../src/lib/analyzer';
 
 // Export context storage
 export {
@@ -27,5 +27,5 @@ export {
   getLatestProjectContext,
   getUserProjects,
   deleteProjectContext,
-} from '../lib/analyzer/context-storage';
-export type { StoredProjectContext } from '../lib/analyzer/context-storage';
+} from '../src/lib/analyzer/context-storage';
+export type { StoredProjectContext } from '../src/lib/analyzer/context-storage';

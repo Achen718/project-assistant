@@ -3,6 +3,7 @@ import { Message } from 'ai';
 import { processChatStream } from '@/lib/ai/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { getProjectContextById } from '@/lib/analyzer/context-storage';
+import { ProjectContext as ContextDomainProjectContext } from '@/lib/context/types';
 
 // Helper function to authenticate requests
 async function authenticateRequest(request: NextRequest) {
@@ -54,11 +55,30 @@ export async function POST(req: NextRequest): Promise<Response> {
     const previousMessages = messages.slice(0, -1);
 
     // Load project context if a contextId was provided
-    let projectContext = undefined;
+    let projectContextForAI: ContextDomainProjectContext | undefined =
+      undefined;
     if (contextId) {
       const storedContext = await getProjectContextById(contextId);
       if (storedContext && storedContext.userId === userId) {
-        projectContext = storedContext.context;
+        const analyzerContext = storedContext.context;
+        projectContextForAI = {
+          projectId: storedContext.id,
+          technologies: analyzerContext.technologies?.map((t) => t.name) || [],
+          frameworks:
+            analyzerContext.technologies
+              ?.filter((t) => t.type === 'framework')
+              .map((t) => t.name) || [],
+          architecture:
+            analyzerContext.patterns?.architectural?.map((p) => p.name) || [],
+          codePatterns:
+            analyzerContext.patterns?.code?.map((p) => ({
+              name: p.name,
+              description: p.description,
+              examples: p.examples,
+            })) || [],
+          bestPractices: [],
+          lastUpdated: storedContext.updatedAt,
+        };
       }
     }
 
@@ -67,7 +87,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       lastMessage.content,
       previousMessages,
       appContext,
-      projectContext
+      projectContextForAI
     );
 
     // Check the result type before using toDataStreamResponse
@@ -76,7 +96,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       return result;
     } else {
       // It's a StreamTextResult, convert to Response
-      return result.toDataStreamResponse() as Response;
+      return result.toDataStreamResponse();
     }
   } catch (error) {
     console.error('Chat API error:', error);
