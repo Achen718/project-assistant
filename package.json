@@ -28,6 +28,7 @@
     "prepublishOnly": "npm run build-lib",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "type-check:src": "tsc --noEmit --skipLibCheck --skipDefaultLibCheck --project tsconfig.src.json",
     "test": "jest",
     "test:direct": "node direct-integration-test.js"
   },
