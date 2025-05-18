@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Message, ChatSession } from '@/lib/types';
 import { ProjectContext } from '@/lib/analyzer';
+import { StoredProjectContext } from '@/lib/analyzer/context-storage';
 
 export interface AIAssistantClientOptions {
   apiUrl: string;
@@ -36,11 +37,16 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
     // Send a message to the AI assistant
     sendMessage: async (
       message: string,
-      history: Message[] = []
+      history: Message[] = [],
+      contextId?: string
     ): Promise<Message> => {
       const response = await fetchWithAuth('/assistant', {
         method: 'POST',
-        body: JSON.stringify({ message, history }),
+        body: JSON.stringify({
+          message,
+          history,
+          contextId,
+        }),
       });
 
       if (!response.ok) {
@@ -69,10 +75,13 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       return data.sessions;
     },
 
-    createSession: async (title?: string): Promise<ChatSession> => {
+    createSession: async (
+      title?: string,
+      contextId?: string
+    ): Promise<ChatSession> => {
       const response = await fetchWithAuth('/sessions', {
         method: 'POST',
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ title, contextId }),
       });
 
       if (!response.ok) {
@@ -114,7 +123,7 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
 
     updateSession: async (
       sessionId: string,
-      data: Partial<ChatSession>
+      data: Partial<ChatSession & { contextId?: string }>
     ): Promise<void> => {
       const response = await fetchWithAuth(`/sessions/${sessionId}`, {
         method: 'PATCH',
@@ -140,7 +149,8 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
     streamMessage: async (
       message: string,
       history: Message[] = [],
-      onChunk: (chunk: string) => void
+      onChunk: (chunk: string) => void,
+      contextId?: string
     ): Promise<Message> => {
       const headers: HeadersInit = {
         Authorization: `Bearer ${apiKey}`,
@@ -154,7 +164,12 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       const response = await fetch(`${apiUrl}/chat`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ message, history, streaming: true }),
+        body: JSON.stringify({
+          message,
+          history,
+          streaming: true,
+          contextId,
+        }),
       });
 
       if (!response.ok) {
@@ -197,6 +212,7 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       projectPath: string
     ): Promise<{
       context: ProjectContext;
+      contextId: string;
     }> => {
       const response = await fetchWithAuth('/analyze', {
         method: 'POST',
@@ -208,7 +224,44 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       }
 
       const data = await response.json();
-      return data.analysis;
+      return {
+        context: data.analysis.context,
+        contextId: data.contextId,
+      };
+    },
+
+    // Project context management
+    getUserProjects: async (): Promise<StoredProjectContext[]> => {
+      const response = await fetchWithAuth('/projects');
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.projects;
+    },
+
+    getProjectContext: async (
+      contextId: string
+    ): Promise<StoredProjectContext> => {
+      const response = await fetchWithAuth(`/projects/${contextId}`);
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      return response.json();
+    },
+
+    deleteProjectContext: async (contextId: string): Promise<void> => {
+      const response = await fetchWithAuth(`/projects/${contextId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
     },
   };
 }
