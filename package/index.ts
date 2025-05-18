@@ -20,3 +20,12 @@ export type {
   ArchitecturalPattern,
   AnalyzerResult,
 } from '../lib/analyzer';
+
+// Export context storage
+export {
+  storeProjectContext,
+  getLatestProjectContext,
+  getUserProjects,
+  deleteProjectContext,
+} from '../lib/analyzer/context-storage';
+export type { StoredProjectContext } from '../lib/analyzer/context-storage';
