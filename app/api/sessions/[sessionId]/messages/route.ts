@@ -27,7 +27,7 @@ async function authenticateRequest(request: NextRequest) {
 export async function GET(
   request: NextRequest,
   { params }: { params: { sessionId: string } }
-) {
+): Promise<Response> {
   try {
     const userId = await authenticateRequest(request);
     if (!userId) {
@@ -51,7 +51,7 @@ export async function GET(
 export async function POST(
   request: NextRequest,
   { params }: { params: { sessionId: string } }
-) {
+): Promise<Response> {
   try {
     const userId = await authenticateRequest(request);
     if (!userId) {

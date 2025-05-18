@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { analyzeProject } from '@/lib/analyzer';
+import { storeProjectContext } from '@/lib/analyzer/context-storage';
 import { adminAuth } from '@/lib/firebase-admin';
 import path from 'path';
 import os from 'os';
@@ -29,7 +30,7 @@ async function authenticateRequest(request: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<Response> {
   try {
     // Authenticate the request
     const userId = await authenticateRequest(req);
@@ -60,8 +61,18 @@ export async function POST(req: NextRequest) {
     // Run the analysis
     const analysis = await analyzeProject(normalizedPath);
 
-    // Return the result
-    return Response.json({ analysis });
+    // Store the analysis results in Firestore
+    const contextId = await storeProjectContext(
+      userId,
+      normalizedPath,
+      analysis
+    );
+
+    // Return the result with the context ID
+    return Response.json({
+      analysis,
+      contextId,
+    });
   } catch (error) {
     console.error('Project analysis error:', error);
     const errorMessage =

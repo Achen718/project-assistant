@@ -19,7 +19,7 @@ async function authenticateRequest(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     // Authenticate the request
     const userId = await authenticateRequest(request);
@@ -47,8 +47,14 @@ export async function POST(request: NextRequest) {
         history || [],
         appContext
       );
-      // Return the stream directly
-      return stream;
+
+      // Return the stream with explicit type assertion
+      if (stream instanceof Response) {
+        return stream;
+      } else {
+        // Convert StreamTextResult to Response
+        return stream.toDataStreamResponse() as Response;
+      }
     } else {
       // Process normally for non-streaming requests
       const aiResponse = await processChat(message, history || [], appContext);

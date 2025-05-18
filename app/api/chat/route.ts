@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { Message } from 'ai';
 import { processChatStream } from '@/lib/ai/server';
 import { adminAuth } from '@/lib/firebase-admin';
+import { getProjectContextById } from '@/lib/analyzer/context-storage';
 
 // Helper function to authenticate requests
 async function authenticateRequest(request: NextRequest) {
@@ -28,7 +29,7 @@ async function authenticateRequest(request: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<Response> {
   try {
     // Authenticate the request
     const userId = await authenticateRequest(req);
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     const appContext = req.headers.get('x-app-context') || undefined;
 
     // Parse request body
-    const { messages } = await req.json();
+    const { messages, contextId } = await req.json();
 
     // Get the last message from the user
     const lastMessage = messages.findLast((m: Message) => m.role === 'user');
@@ -52,11 +53,21 @@ export async function POST(req: NextRequest) {
     // Get previous messages for context (excluding the last user message)
     const previousMessages = messages.slice(0, -1);
 
+    // Load project context if a contextId was provided
+    let projectContext = undefined;
+    if (contextId) {
+      const storedContext = await getProjectContextById(contextId);
+      if (storedContext && storedContext.userId === userId) {
+        projectContext = storedContext.context;
+      }
+    }
+
     // Get the result from processChatStream
     const result = await processChatStream(
       lastMessage.content,
       previousMessages,
-      appContext
+      appContext,
+      projectContext
     );
 
     // Check the result type before using toDataStreamResponse
@@ -64,8 +75,8 @@ export async function POST(req: NextRequest) {
       // It's already a Response object, return it directly
       return result;
     } else {
-      // It's a StreamTextResult, call toDataStreamResponse
-      return result.toDataStreamResponse();
+      // It's a StreamTextResult, convert to Response
+      return result.toDataStreamResponse() as Response;
     }
   } catch (error) {
     console.error('Chat API error:', error);
