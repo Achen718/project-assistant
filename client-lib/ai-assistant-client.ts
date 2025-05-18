@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Message, ChatSession } from '@/lib/types';
+import { ProjectContext } from '@/lib/analyzer';
 
 export interface AIAssistantClientOptions {
   apiUrl: string;
@@ -189,6 +190,25 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
         content: fullText,
         createdAt: new Date(),
       };
+    },
+
+    // Project analysis
+    analyzeProject: async (
+      projectPath: string
+    ): Promise<{
+      context: ProjectContext;
+    }> => {
+      const response = await fetchWithAuth('/analyze', {
+        method: 'POST',
+        body: JSON.stringify({ projectPath }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.analysis;
     },
   };
 }

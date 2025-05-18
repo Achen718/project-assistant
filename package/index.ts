@@ -10,3 +10,13 @@ export type { AIAssistantClientOptions } from '../client-lib/ai-assistant-client
 
 // Export types
 export type { Message, ChatSession } from '../lib/types';
+
+// Export analyzer
+export { analyzeProject } from '../lib/analyzer';
+export type {
+  ProjectContext,
+  Technology,
+  CodePattern,
+  ArchitecturalPattern,
+  AnalyzerResult,
+} from '../lib/analyzer';
