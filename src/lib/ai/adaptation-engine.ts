@@ -41,9 +41,9 @@ function formatContextForPrompt(context: ProjectContext): string {
   const {
     technologies,
     frameworks,
-    architecture,
+    architecturalPatterns,
     codePatterns,
-    bestPractices,
+    bestPracticesObserved,
   } = context;
 
   return `
@@ -51,13 +51,13 @@ function formatContextForPrompt(context: ProjectContext): string {
 Use this context to tailor your response to this specific project.
 
 ## Technology Stack
-${technologies?.join(', ') || 'Not specified'}
+${technologies?.map((t) => t.name).join(', ') || 'Not specified'}
 
 ## Frameworks
-${frameworks?.join(', ') || 'Not specified'}
+${frameworks?.map((f) => f.name).join(', ') || 'Not specified'}
 
 ## Architecture
-${architecture?.join(', ') || 'Not specified'}
+${architecturalPatterns?.map((p) => p.name).join(', ') || 'Not specified'}
 
 ## Code Patterns
 ${
@@ -66,10 +66,11 @@ ${
     .join('\n') || 'Not specified'
 }
 
-## Best Practices
+## Best Practices Observed
 ${
-  bestPractices?.map((practice) => `- ${practice}`).join('\n') ||
-  'Not specified'
+  bestPracticesObserved
+    ?.map((practice: string) => `- ${practice}`)
+    .join('\n') || 'Not specified'
 }
 `;
 }

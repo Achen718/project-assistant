@@ -1,9 +1,35 @@
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
-import { AnalyzerResult } from './types';
-import { analyzePackageJson } from './package-analyzer';
-import { analyzeFileStructure } from './file-structure-analyzer';
+import { AnalyzerResult, AnalyzerProjectContext } from './types';
+import { analyzePackageJson, PackageAnalyzerResult } from './package-analyzer';
+import {
+  analyzeFileStructure,
+  FileStructureAnalyzerResult,
+} from './file-structure-analyzer';
 import { analyzeCodeQuality } from './code-quality-analyzer';
+
+// Helper function to get all file paths in a directory recursively
+async function getAllFilePaths(
+  dirPath: string,
+  baseDir: string = dirPath
+): Promise<string[]> {
+  let files: string[] = [];
+  const entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name);
+    const relativePath = path.relative(baseDir, fullPath);
+    if (entry.isDirectory()) {
+      // Skip node_modules and .git directories
+      if (entry.name !== 'node_modules' && entry.name !== '.git') {
+        files = files.concat(await getAllFilePaths(fullPath, baseDir));
+      }
+    } else {
+      files.push(relativePath.replace(/\\/g, '/')); // Normalize to forward slashes
+    }
+  }
+  return files;
+}
 
 /**
  * Analyzes a project codebase and extracts contextual information
@@ -16,105 +42,168 @@ export async function analyzeProject(
     throw new Error(`Project path does not exist: ${projectPath}`);
   }
 
-  // Initialize result with empty data
   const result: AnalyzerResult = {
     context: {
-      name: path.basename(projectPath),
+      projectName: path.basename(projectPath),
       technologies: [],
-      patterns: {
-        code: [],
-        architectural: [],
-      },
+      architecturalPatterns: [],
+      codePatterns: [],
+      bestPracticesObserved: [],
       fileStructure: {
         directories: [],
         entryPoints: [],
         configFiles: [],
       },
-      metadata: {
+      analysisMetadata: {
         analyzedAt: new Date(),
-        confidence: 0,
+        overallConfidence: 0,
       },
+    } as AnalyzerProjectContext,
+    rawFileContents: {
+      packageJson: undefined,
+      tsConfig: undefined,
+      nextConfig: undefined,
+      otherRelevantConfigs: {},
     },
-    raw: {
-      otherConfigs: {},
-    },
+    errors: [],
   };
 
   try {
-    // Parse package.json
+    // Get all file paths first
+    const allProjectFiles = await getAllFilePaths(projectPath);
+
     const packageJsonPath = path.join(projectPath, 'package.json');
     if (fs.existsSync(packageJsonPath)) {
-      const packageJsonRaw = fs.readFileSync(packageJsonPath, 'utf-8');
-      result.raw.packageJson = JSON.parse(packageJsonRaw);
-      // Extract technologies from package.json if package.json exists
-      if (result.raw.packageJson) {
-        result.context.technologies = analyzePackageJson(
-          result.raw.packageJson
+      const packageJsonRaw = await fsPromises.readFile(
+        packageJsonPath,
+        'utf-8'
+      );
+      result.rawFileContents!.packageJson = JSON.parse(packageJsonRaw);
+      if (result.rawFileContents!.packageJson) {
+        const packageAnalysis: PackageAnalyzerResult = analyzePackageJson(
+          result.rawFileContents!.packageJson
         );
+        const technologiesFromPackage = packageAnalysis.technologies || [];
+
+        if (result.context.technologies) {
+          result.context.technologies.push(...technologiesFromPackage);
+        } else {
+          result.context.technologies = technologiesFromPackage;
+        }
       }
     }
 
-    // Parse tsconfig.json if available
     const tsconfigPath = path.join(projectPath, 'tsconfig.json');
     if (fs.existsSync(tsconfigPath)) {
-      const tsconfigRaw = fs.readFileSync(tsconfigPath, 'utf-8');
-      result.raw.tsConfig = JSON.parse(tsconfigRaw);
+      const tsconfigRaw = await fsPromises.readFile(tsconfigPath, 'utf-8');
+      result.rawFileContents!.tsConfig = JSON.parse(tsconfigRaw);
     }
 
-    // Parse next.config.js/ts if available
-    const nextConfigPath = fs.existsSync(
-      path.join(projectPath, 'next.config.js')
-    )
-      ? path.join(projectPath, 'next.config.js')
-      : path.join(projectPath, 'next.config.ts');
+    const nextConfigJsPath = path.join(projectPath, 'next.config.js');
+    const nextConfigTsPath = path.join(projectPath, 'next.config.ts');
+    let nextConfigPathResolved: string | undefined;
 
-    if (fs.existsSync(nextConfigPath)) {
-      // Just note that it exists - parsing would require evaluation
-      result.raw.nextConfig = { path: nextConfigPath };
+    if (allProjectFiles.includes('next.config.js')) {
+      nextConfigPathResolved = nextConfigJsPath;
+    } else if (allProjectFiles.includes('next.config.ts')) {
+      nextConfigPathResolved = nextConfigTsPath;
     }
 
-    // Analyze file structure
-    const fileStructureResult = await analyzeFileStructure(projectPath);
-    result.context.fileStructure.directories = fileStructureResult.directories;
-    result.context.fileStructure.entryPoints = fileStructureResult.entryPoints;
-    result.context.fileStructure.configFiles = fileStructureResult.configFiles;
-    result.context.patterns.architectural =
-      fileStructureResult.patterns.architectural;
+    if (nextConfigPathResolved) {
+      result.rawFileContents!.nextConfig = { path: nextConfigPathResolved };
+    }
 
-    // Merge code patterns
-    result.context.patterns.code = [...fileStructureResult.patterns.code];
+    const fileStructureResult: FileStructureAnalyzerResult =
+      analyzeFileStructure(allProjectFiles);
 
-    // Analyze code quality
+    if (result.context.fileStructure) {
+      result.context.fileStructure.directories =
+        fileStructureResult.fileStructure?.directories || [];
+      result.context.fileStructure.entryPoints =
+        fileStructureResult.fileStructure?.entryPoints || [];
+      result.context.fileStructure.configFiles =
+        fileStructureResult.fileStructure?.configFiles || [];
+    }
+
+    if (fileStructureResult.architecturalPatterns) {
+      result.context.architecturalPatterns = [
+        ...(result.context.architecturalPatterns || []),
+        ...fileStructureResult.architecturalPatterns,
+      ];
+    }
+
+    if (fileStructureResult.codePatterns) {
+      result.context.codePatterns = [
+        ...(result.context.codePatterns || []),
+        ...fileStructureResult.codePatterns,
+      ];
+    }
+
     const codeQualityResult = await analyzeCodeQuality(projectPath);
-    result.context.patterns.code = [
-      ...result.context.patterns.code,
-      ...codeQualityResult.patterns,
-    ];
+    if (codeQualityResult.patterns) {
+      result.context.codePatterns = [
+        ...(result.context.codePatterns || []),
+        ...codeQualityResult.patterns,
+      ];
+    }
 
-    // Calculate confidence score based on the completeness of the analysis
-    // This is a simple heuristic that can be improved
-    const hasPackageJson = !!result.raw.packageJson;
-    const hasTsConfig = !!result.raw.tsConfig;
-    const hasNextConfig = !!result.raw.nextConfig;
+    const hasPackageJson = !!result.rawFileContents!.packageJson;
+    const hasTsConfig = !!result.rawFileContents!.tsConfig;
+    const hasNextConfig = !!result.rawFileContents!.nextConfig;
+
+    // Use fileStructureResult for commonDirs as result.context.fileStructure might not have it yet
+    const componentsInFileStructure =
+      fileStructureResult.fileStructure?.commonDirs?.includes('components') ||
+      fileStructureResult.fileStructure?.directories?.includes('components') ||
+      false;
+    const pagesInFileStructure =
+      fileStructureResult.fileStructure?.commonDirs?.includes('pages') ||
+      fileStructureResult.fileStructure?.directories?.includes('pages') ||
+      false;
+    const appInFileStructure =
+      fileStructureResult.fileStructure?.commonDirs?.includes('app') ||
+      fileStructureResult.fileStructure?.directories?.includes('app') ||
+      false;
+
     const hasComponents =
-      result.context.fileStructure.directories.includes('components');
-    const hasPages = result.context.fileStructure.directories.includes('pages');
-    const hasApp = result.context.fileStructure.directories.includes('app');
+      result.context.fileStructure?.directories?.includes('components') ||
+      componentsInFileStructure; // Use the check from fileStructureResult
+    const hasPages =
+      result.context.fileStructure?.directories?.includes('pages') ||
+      pagesInFileStructure; // Use the check from fileStructureResult
+    const hasApp =
+      result.context.fileStructure?.directories?.includes('app') ||
+      appInFileStructure; // Use the check from fileStructureResult
 
-    // Simple scoring: 0-1 range
-    let confidenceScore = 0.5; // Base score
+    let confidenceScore = 0.5;
 
     if (hasPackageJson) confidenceScore += 0.1;
     if (hasTsConfig) confidenceScore += 0.05;
     if (hasNextConfig) confidenceScore += 0.05;
     if (hasComponents) confidenceScore += 0.1;
     if (hasPages || hasApp) confidenceScore += 0.1;
-    if (result.context.technologies.length > 0) confidenceScore += 0.1;
+    if (result.context.technologies && result.context.technologies.length > 0)
+      confidenceScore += 0.1;
 
-    result.context.metadata.confidence = Math.min(1, confidenceScore);
-  } catch (error) {
+    if (result.context.analysisMetadata) {
+      result.context.analysisMetadata.overallConfidence = Math.min(
+        1,
+        confidenceScore
+      );
+    }
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unknown error during project analysis';
     console.error('Error during project analysis:', error);
-    result.context.metadata.confidence = 0.3; // Lower confidence on error
+    if (result.context.analysisMetadata) {
+      result.context.analysisMetadata.overallConfidence = 0.3;
+    }
+    result.errors = [
+      ...(result.errors || []),
+      { message, sourceAnalyzer: 'analyzeProjectCatchBlock' },
+    ];
   }
 
   return result;

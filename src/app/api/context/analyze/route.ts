@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { storeAnalysisResult } from '@/lib/firebase/context-service';
-import { ProjectContext } from '@/lib/context/types';
+import {
+  ProjectContext,
+  Technology,
+  ArchitecturalPattern,
+  CodePattern,
+} from '@/lib/context/types';
 
-// Authenticate API requests
 async function authenticateRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -22,13 +26,11 @@ async function authenticateRequest(request: NextRequest) {
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
-    // Authenticate the request
     const userId = await authenticateRequest(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Extract project details from the request
     const { projectId, packageJson } = await request.json();
 
     if (!projectId) {
@@ -38,20 +40,16 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
     }
 
-    // This would normally call your analysis logic
-    // For now, we'll create a mock analysis
     const mockAnalysis = createMockAnalysis(projectId, packageJson);
 
-    // Store the analysis result
-    const resultId = await storeAnalysisResult({
+    await storeAnalysisResult({
       projectId,
       context: mockAnalysis,
-      timestamp: Date.now(),
+      analysisTimestamp: Date.now(),
     });
 
     return NextResponse.json({
       success: true,
-      resultId,
       projectId,
       context: mockAnalysis,
     });
@@ -64,6 +62,150 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 }
 
+const KNOWN_TECHNOLOGIES_CONFIG = [
+  // Frameworks
+  {
+    keyPatterns: ['react'],
+    name: 'React',
+    type: 'framework',
+    targetArray: 'frameworks',
+  },
+  {
+    keyPatterns: ['next'],
+    name: 'Next.js',
+    type: 'framework',
+    targetArray: 'frameworks',
+  },
+  {
+    keyPatterns: ['vue'],
+    name: 'Vue.js',
+    type: 'framework',
+    targetArray: 'frameworks',
+  },
+  {
+    keyPatterns: ['angular'],
+    name: 'Angular',
+    type: 'framework',
+    targetArray: 'frameworks',
+  },
+  {
+    keyPatterns: ['svelte'],
+    name: 'Svelte',
+    type: 'framework',
+    targetArray: 'frameworks',
+  },
+
+  // UI Libraries
+  {
+    keyPatterns: ['shadcn'],
+    name: 'Shadcn UI',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['chakra'],
+    name: 'Chakra UI',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['tailwindcss'],
+    name: 'Tailwind CSS',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['material-ui', '@mui/core'],
+    name: 'Material UI',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+
+  // State Management
+  {
+    keyPatterns: ['redux'],
+    name: 'Redux',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['mobx'],
+    name: 'MobX',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['zustand'],
+    name: 'Zustand',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['recoil'],
+    name: 'Recoil',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+
+  // Testing
+  {
+    keyPatterns: ['jest'],
+    name: 'Jest',
+    type: 'tool',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['testing-library'],
+    name: 'Testing Library',
+    type: 'tool',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['cypress'],
+    name: 'Cypress',
+    type: 'tool',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['playwright'],
+    name: 'Playwright',
+    type: 'tool',
+    targetArray: 'technologies',
+  },
+
+  // Other Important Libraries/Tools
+  {
+    keyPatterns: ['typescript'],
+    name: 'TypeScript',
+    type: 'language',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['firebase'],
+    name: 'Firebase',
+    type: 'database',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['graphql'],
+    name: 'GraphQL',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['prisma'],
+    name: 'Prisma',
+    type: 'tool',
+    targetArray: 'technologies',
+  },
+  {
+    keyPatterns: ['trpc'],
+    name: 'tRPC',
+    type: 'library',
+    targetArray: 'technologies',
+  },
+];
+
 /**
  * Creates a mock analysis result based on package.json
  * In a real implementation, this would be replaced with actual analysis logic
@@ -75,138 +217,104 @@ function createMockAnalysis(
     devDependencies?: Record<string, string>;
   }
 ): ProjectContext {
-  const technologies: string[] = [];
-  const frameworks: string[] = [];
-  const architecture: string[] = [];
-  const codePatterns: Array<{ name: string; description: string }> = [];
-  const bestPractices: string[] = [];
+  const technologies: Technology[] = [];
+  const frameworks: Technology[] = [];
+  const architecturalPatterns: ArchitecturalPattern[] = [];
+  const codePatterns: CodePattern[] = [];
+  const bestPracticesObserved: string[] = [];
 
-  // Extract dependencies from package.json if available
   if (packageJson && typeof packageJson === 'object') {
-    // Extract dependencies
     const allDeps = {
       ...packageJson.dependencies,
       ...packageJson.devDependencies,
     };
 
-    // Process dependencies to identify technologies
     Object.keys(allDeps).forEach((dep) => {
-      // Framework detection
-      if (dep === 'react') {
-        frameworks.push('React');
-      } else if (dep === 'next') {
-        frameworks.push('Next.js');
-      } else if (dep === 'vue') {
-        frameworks.push('Vue.js');
-      } else if (dep === 'angular') {
-        frameworks.push('Angular');
-      } else if (dep === 'svelte') {
-        frameworks.push('Svelte');
-      }
-
-      // UI libraries
-      if (dep.includes('shadcn')) {
-        technologies.push('Shadcn UI');
-      } else if (dep.includes('chakra')) {
-        technologies.push('Chakra UI');
-      } else if (dep === 'tailwindcss') {
-        technologies.push('Tailwind CSS');
-      } else if (dep.includes('material-ui') || dep === '@mui/core') {
-        technologies.push('Material UI');
-      }
-
-      // State management
-      if (dep === 'redux' || dep.includes('redux')) {
-        technologies.push('Redux');
-      } else if (dep === 'mobx' || dep.includes('mobx')) {
-        technologies.push('MobX');
-      } else if (dep === 'zustand') {
-        technologies.push('Zustand');
-      } else if (dep === 'recoil') {
-        technologies.push('Recoil');
-      }
-
-      // Testing
-      if (dep === 'jest' || dep.includes('jest')) {
-        technologies.push('Jest');
-      } else if (dep.includes('testing-library')) {
-        technologies.push('Testing Library');
-      } else if (dep === 'cypress') {
-        technologies.push('Cypress');
-      } else if (dep === 'playwright') {
-        technologies.push('Playwright');
-      }
-
-      // Other important libraries
-      if (dep === 'typescript') {
-        technologies.push('TypeScript');
-      } else if (dep.includes('firebase')) {
-        technologies.push('Firebase');
-      } else if (dep.includes('graphql')) {
-        technologies.push('GraphQL');
-      } else if (dep.includes('prisma')) {
-        technologies.push('Prisma');
-      } else if (dep.includes('trpc')) {
-        technologies.push('tRPC');
+      for (const techConfig of KNOWN_TECHNOLOGIES_CONFIG) {
+        if (techConfig.keyPatterns.some((pattern) => dep.includes(pattern))) {
+          const techInfo = {
+            name: techConfig.name,
+            type: techConfig.type as Technology['type'],
+            version: allDeps[dep],
+          };
+          if (techConfig.targetArray === 'frameworks') {
+            frameworks.push(techInfo);
+          } else {
+            technologies.push(techInfo);
+          }
+          break;
+        }
       }
     });
 
-    // Infer architecture based on dependencies
-    if (frameworks.includes('Next.js')) {
-      architecture.push('Server Components');
-
-      // Check for App Router vs Pages Router
+    if (frameworks.some((f) => f.name === 'Next.js')) {
+      architecturalPatterns.push({
+        name: 'Server Components',
+        description: 'Utilizes Next.js Server Components',
+      });
+      const nextVersion =
+        packageJson.dependencies?.next || packageJson.devDependencies?.next;
       if (
-        packageJson.dependencies?.next.startsWith('13') ||
-        packageJson.dependencies?.next.startsWith('14') ||
-        packageJson.dependencies?.next.startsWith('15')
+        nextVersion &&
+        (nextVersion.startsWith('13') ||
+          nextVersion.startsWith('14') ||
+          nextVersion.startsWith('15'))
       ) {
-        architecture.push('App Router');
+        architecturalPatterns.push({
+          name: 'App Router',
+          description: 'Next.js App Router for routing and layouts',
+        });
       } else {
-        architecture.push('Pages Router');
+        architecturalPatterns.push({
+          name: 'Pages Router',
+          description: 'Next.js Pages Router for routing',
+        });
       }
     }
 
-    // Add some standard code patterns
-    if (technologies.includes('TypeScript')) {
+    if (technologies.some((t) => t.name === 'TypeScript')) {
       codePatterns.push({
         name: 'Type-safe components',
         description: 'Components use TypeScript interfaces for props',
       });
-
-      bestPractices.push('Use proper TypeScript types instead of any');
-      bestPractices.push('Use interfaces for component props');
+      bestPracticesObserved.push('Use proper TypeScript types instead of any');
+      bestPracticesObserved.push('Use interfaces for component props');
     }
 
-    if (frameworks.includes('React')) {
+    if (frameworks.some((f) => f.name === 'React')) {
       codePatterns.push({
         name: 'Functional components',
         description:
           'Components are built using React function components with hooks',
       });
-
-      bestPractices.push('Prefer hooks over class components');
-      bestPractices.push('Extract reusable logic into custom hooks');
+      bestPracticesObserved.push('Prefer hooks over class components');
+      bestPracticesObserved.push('Extract reusable logic into custom hooks');
     }
 
-    if (technologies.includes('Tailwind CSS')) {
+    if (technologies.some((t) => t.name === 'Tailwind CSS')) {
       codePatterns.push({
         name: 'Utility-first CSS',
         description: 'Components use Tailwind utility classes for styling',
       });
-
-      bestPractices.push("Use Tailwind's utility classes directly in JSX");
-      bestPractices.push('Extract common patterns to component abstractions');
+      bestPracticesObserved.push(
+        "Use Tailwind's utility classes directly in JSX"
+      );
+      bestPracticesObserved.push(
+        'Extract common patterns to component abstractions'
+      );
     }
   }
 
   return {
     projectId,
-    technologies,
-    frameworks,
-    architecture,
+    technologies: technologies.filter(
+      // Ensure unique by name before returning
+      (tech, index, self) =>
+        index === self.findIndex((t) => t.name === tech.name)
+    ),
+    architecturalPatterns,
     codePatterns,
-    bestPractices,
-    lastUpdated: Date.now(),
+    bestPracticesObserved,
+    lastAnalyzed: new Date().toISOString(),
   };
 }

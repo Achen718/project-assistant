@@ -1,5 +1,6 @@
 import { adminDb } from '@/lib/firebase-admin';
-import { ProjectContext, AnalysisResult } from '@/lib/context/types';
+import { ProjectContext, StoredAnalysisResult } from '@/lib/context/types';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * Store project context analysis in Firestore
@@ -25,17 +26,18 @@ export async function storeProjectContext(
 export async function getProjectContext(
   projectId: string
 ): Promise<ProjectContext | null> {
-  try {
-    const docRef = adminDb.collection('projectContexts').doc(projectId);
-    const doc = await docRef.get();
+  if (!projectId) {
+    console.warn('getProjectContext called with no projectId');
+    return null;
+  }
+  const docRef = adminDb.collection('projectContexts').doc(projectId);
+  const docSnap = await docRef.get();
 
-    if (!doc.exists) {
-      return null;
-    }
-
-    return doc.data() as ProjectContext;
-  } catch (error) {
-    console.error('Error retrieving project context:', error);
+  if (docSnap.exists) {
+    const storedData = docSnap.data() as StoredAnalysisResult;
+    return storedData.context;
+  } else {
+    console.log(`No project context found for ID: ${projectId}`);
     return null;
   }
 }
@@ -44,22 +46,23 @@ export async function getProjectContext(
  * Store project analysis result with timestamp
  */
 export async function storeAnalysisResult(
-  analysisResult: AnalysisResult
-): Promise<string> {
-  const { projectId, context, timestamp } = analysisResult;
-  const docRef = adminDb.collection('analysisResults').doc();
+  result: StoredAnalysisResult
+): Promise<void> {
+  if (!result.projectId) {
+    throw new Error('Project ID is required to store analysis results.');
+  }
+  if (!result.context) {
+    throw new Error('Context is required to store analysis results.');
+  }
 
-  await docRef.set({
-    projectId,
-    context,
-    timestamp,
-    createdAt: Date.now(),
-  });
+  const docRef = adminDb.collection('projectContexts').doc(result.projectId);
 
-  // Also update the current project context
-  await storeProjectContext(projectId, context);
+  const dataToStore = {
+    ...result,
+    storageTimestamp: FieldValue.serverTimestamp(),
+  };
 
-  return docRef.id;
+  await docRef.set(dataToStore, { merge: true });
 }
 
 /**
@@ -68,7 +71,7 @@ export async function storeAnalysisResult(
 export async function getAnalysisHistory(
   projectId: string,
   limit = 10
-): Promise<AnalysisResult[]> {
+): Promise<StoredAnalysisResult[]> {
   try {
     const querySnapshot = await adminDb
       .collection('analysisResults')
@@ -82,12 +85,8 @@ export async function getAnalysisHistory(
     }
 
     return querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        projectId: data.projectId,
-        context: data.context,
-        timestamp: data.timestamp,
-      };
+      const data = doc.data() as StoredAnalysisResult;
+      return data;
     });
   } catch (error) {
     console.error('Error retrieving analysis history:', error);

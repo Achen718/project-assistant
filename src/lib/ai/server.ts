@@ -8,7 +8,6 @@ import { ProjectContext } from '@/lib/context/types';
 
 const openaiModel = openai('gpt-4o');
 
-// Process a chat with standard response
 export async function processChat(
   message: string,
   history: Message[] = [],
@@ -16,7 +15,6 @@ export async function processChat(
   projectId?: string
 ) {
   try {
-    // If projectId is provided, fetch project context and use the context adapter
     if (projectId) {
       const projectContext = await getProjectContext(projectId);
       const response = await generateContextAwareResponse(
@@ -27,17 +25,14 @@ export async function processChat(
       return response;
     }
 
-    // Otherwise, use the standard chain-based approach
     const systemPrompt = createSystemPrompt(appContext);
     const chain = createAssistantChain(systemPrompt);
 
-    // Format history for LangChain (convert from AI SDK Message to LangChain format)
     const formattedHistory = history.map((msg) => ({
       role: msg.role === 'user' ? 'human' : 'assistant',
       content: msg.content,
     }));
 
-    // Get response
     const response = await chain.invoke({
       input: message,
       chat_history: formattedHistory,
@@ -50,20 +45,16 @@ export async function processChat(
   }
 }
 
-// Process chat with streaming response for Vercel AI SDK
 export async function processChatStream(
   message: string,
   history: Message[] = [],
   appContext?: string,
   projectContext?: ProjectContext
 ) {
-  // For streaming, we'll use the AI SDK directly
-  // First create appropriate system prompt
   let systemPrompt = '';
 
   if (projectContext) {
     try {
-      // If context is available, create an enhanced system prompt
       systemPrompt = createSystemPromptWithContext(appContext, projectContext);
     } catch (error) {
       console.error(
@@ -76,7 +67,6 @@ export async function processChatStream(
     systemPrompt = createSystemPrompt(appContext);
   }
 
-  // Create properly typed messages using AI SDK types
   const formattedMessages: Message[] = [
     { id: crypto.randomUUID(), role: 'system', content: systemPrompt },
     ...history,
@@ -84,7 +74,6 @@ export async function processChatStream(
   ];
 
   try {
-    // Using the streamText function according to AI SDK documentation
     return streamText({
       model: openaiModel,
       messages: formattedMessages,
@@ -103,7 +92,7 @@ export async function processChatStream(
 /**
  * Creates a basic system prompt based on application context
  */
-function createSystemPrompt(appContext?: string): string {
+export function createSystemPrompt(appContext?: string): string {
   return appContext
     ? `You are an AI assistant for ${appContext}. Be helpful, concise, and friendly.`
     : 'You are a helpful AI assistant.';
@@ -112,39 +101,38 @@ function createSystemPrompt(appContext?: string): string {
 /**
  * Creates a detailed system prompt that incorporates project context
  */
-function createSystemPromptWithContext(
+export function createSystemPromptWithContext(
   appContext?: string,
   projectContext?: ProjectContext
 ): string {
-  // Base prompt
   let prompt = createSystemPrompt(appContext);
 
   if (!projectContext) {
     return prompt;
   }
 
-  // Enhance with project context
   prompt += `\n\nYou are assisting with a software project with the following context:`;
 
-  // Add information about the technology stack
   if (projectContext.technologies && projectContext.technologies.length > 0) {
     prompt += '\n\nProject Technologies:';
-    prompt += `\n${projectContext.technologies.join(', ')}`;
+    prompt += `\n${projectContext.technologies.map((t) => t.name).join(', ')}`;
   }
 
-  // Add frameworks
   if (projectContext.frameworks && projectContext.frameworks.length > 0) {
     prompt += '\n\nFrameworks:';
-    prompt += `\n${projectContext.frameworks.join(', ')}`;
+    prompt += `\n${projectContext.frameworks.map((f) => f.name).join(', ')}`;
   }
 
-  // Add architectural patterns
-  if (projectContext.architecture && projectContext.architecture.length > 0) {
+  if (
+    projectContext.architecturalPatterns &&
+    projectContext.architecturalPatterns.length > 0
+  ) {
     prompt += '\n\nArchitecture:';
-    prompt += `\n${projectContext.architecture.join(', ')}`;
+    prompt += `\n${projectContext.architecturalPatterns
+      .map((p) => p.name)
+      .join(', ')}`;
   }
 
-  // Add code patterns
   if (projectContext.codePatterns && projectContext.codePatterns.length > 0) {
     prompt += '\n\nCode Patterns:';
     for (const pattern of projectContext.codePatterns) {
@@ -152,17 +140,17 @@ function createSystemPromptWithContext(
     }
   }
 
-  // Add best practices
-  if (projectContext.bestPractices && projectContext.bestPractices.length > 0) {
-    prompt += '\n\nBest Practices:';
-    for (const practice of projectContext.bestPractices) {
+  if (
+    projectContext.bestPracticesObserved &&
+    projectContext.bestPracticesObserved.length > 0
+  ) {
+    prompt += '\n\nBest Practices Observed:';
+    for (const practice of projectContext.bestPracticesObserved) {
       prompt += `\n- ${practice}`;
     }
   }
 
-  // Add guidance for the assistant
-  prompt += `\n
-When answering questions about this project:
+  prompt += `\n\nWhen answering questions about this project:
 1. Consider the technologies and frameworks being used
 2. Follow the established architectural patterns
 3. Suggest solutions that align with the existing codebase

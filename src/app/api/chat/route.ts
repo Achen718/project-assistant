@@ -2,12 +2,19 @@ import { NextRequest } from 'next/server';
 import { Message } from 'ai';
 import { processChatStream } from '@/lib/ai/server';
 import { adminAuth } from '@/lib/firebase-admin';
-import { getProjectContextById } from '@/lib/analyzer/context-storage';
+import {
+  getProjectContextById,
+  StoredProjectContext,
+} from '@/lib/analyzer/context-storage';
 import { ProjectContext as ContextDomainProjectContext } from '@/lib/context/types';
+import type {
+  AnalyzerProjectContext,
+  Technology as AnalyzerTechnology,
+  ArchitecturalPattern as AnalyzerArchitecturalPattern,
+  CodePattern as AnalyzerCodePattern,
+} from '@/lib/analyzer/types';
 
-// Helper function to authenticate requests
 async function authenticateRequest(request: NextRequest) {
-  // Allow dev mode to bypass authentication if needed
   if (
     process.env.NODE_ENV === 'development' &&
     process.env.BYPASS_AUTH === 'true'
@@ -38,51 +45,69 @@ export async function POST(req: NextRequest): Promise<Response> {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get context from headers if available
     const appContext = req.headers.get('x-app-context') || undefined;
-
-    // Parse request body
     const { messages, contextId } = await req.json();
-
-    // Get the last message from the user
     const lastMessage = messages.findLast((m: Message) => m.role === 'user');
 
     if (!lastMessage || !lastMessage.content) {
       return Response.json({ error: 'No user message found' }, { status: 400 });
     }
 
-    // Get previous messages for context (excluding the last user message)
     const previousMessages = messages.slice(0, -1);
-
-    // Load project context if a contextId was provided
     let projectContextForAI: ContextDomainProjectContext | undefined =
       undefined;
+
     if (contextId) {
-      const storedContext = await getProjectContextById(contextId);
-      if (storedContext && storedContext.userId === userId) {
-        const analyzerContext = storedContext.context;
-        projectContextForAI = {
-          projectId: storedContext.id,
-          technologies: analyzerContext.technologies?.map((t) => t.name) || [],
-          frameworks:
-            analyzerContext.technologies
-              ?.filter((t) => t.type === 'framework')
-              .map((t) => t.name) || [],
-          architecture:
-            analyzerContext.patterns?.architectural?.map((p) => p.name) || [],
-          codePatterns:
-            analyzerContext.patterns?.code?.map((p) => ({
+      const storedResult: StoredProjectContext | null =
+        await getProjectContextById(contextId);
+
+      if (
+        storedResult &&
+        storedResult.userId === userId &&
+        storedResult.context
+      ) {
+        const analyzerContext: AnalyzerProjectContext = storedResult.context;
+
+        const technologiesForAI: AnalyzerTechnology[] =
+          analyzerContext.technologies || [];
+        const frameworksForAI: AnalyzerTechnology[] =
+          analyzerContext.technologies?.filter(
+            (t: AnalyzerTechnology) => t.type === 'framework'
+          ) || [];
+
+        const architecturalPatternsForAI =
+          analyzerContext.architecturalPatterns?.map(
+            (p: AnalyzerArchitecturalPattern) => ({
               name: p.name,
               description: p.description,
-              examples: p.examples,
-            })) || [],
-          bestPractices: [],
-          lastUpdated: storedContext.updatedAt,
+              components: p.components,
+              locations: p.locations,
+            })
+          ) || [];
+
+        const codePatternsForAI =
+          analyzerContext.codePatterns?.map((p: AnalyzerCodePattern) => ({
+            name: p.name,
+            description: p.description,
+            examples: p.examples,
+            locations: p.locations,
+          })) || [];
+
+        projectContextForAI = {
+          projectId: storedResult.id,
+          projectName: analyzerContext.projectName,
+          technologies: technologiesForAI,
+          frameworks: frameworksForAI,
+          architecturalPatterns: architecturalPatternsForAI,
+          codePatterns: codePatternsForAI,
+          bestPracticesObserved: analyzerContext.bestPracticesObserved || [],
+          lastAnalyzed: storedResult.updatedAt
+            ? new Date(storedResult.updatedAt).toISOString()
+            : new Date().toISOString(),
         };
       }
     }
 
-    // Get the result from processChatStream
     const result = await processChatStream(
       lastMessage.content,
       previousMessages,
@@ -90,12 +115,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       projectContextForAI
     );
 
-    // Check the result type before using toDataStreamResponse
     if (result instanceof Response) {
-      // It's already a Response object, return it directly
       return result;
     } else {
-      // It's a StreamTextResult, convert to Response
       return result.toDataStreamResponse();
     }
   } catch (error) {

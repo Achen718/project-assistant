@@ -178,17 +178,19 @@ function formatContextSummary(context: ProjectContext): string {
   const {
     technologies,
     frameworks,
-    architecture,
+    architecturalPatterns,
     codePatterns,
-    bestPractices,
+    bestPracticesObserved,
   } = context;
 
   return `
 PROJECT CONTEXT SUMMARY:
-- Technologies: ${technologies?.join(', ') || 'N/A'}
-- Frameworks: ${frameworks?.join(', ') || 'N/A'}
-- Architecture: ${architecture?.join(', ') || 'N/A'}
+- Technologies: ${technologies?.map((t) => t.name).join(', ') || 'N/A'}
+- Frameworks: ${frameworks?.map((f) => f.name).join(', ') || 'N/A'}
+- Architecture: ${architecturalPatterns?.map((p) => p.name).join(', ') || 'N/A'}
 - Code Patterns: ${codePatterns?.map((p) => p.name).join(', ') || 'N/A'}
-- Best Practices: ${bestPractices?.slice(0, 3).join(', ') || 'N/A'}
+- Best Practices Observed: ${
+    bestPracticesObserved?.slice(0, 3).join(', ') || 'N/A'
+  }
 `;
 }

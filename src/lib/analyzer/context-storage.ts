@@ -12,13 +12,15 @@ import {
 } from 'firebase/firestore';
 import { clientDb } from '../firebase';
 import { adminDb } from '../firebase-admin';
-import { AnalyzerResult, ProjectContext } from './types';
+import {
+  AnalyzerResult,
+  AnalyzerProjectContext as ProjectContext,
+} from './types';
 import crypto from 'crypto';
 
 /**
  * The context storage service provides persistence for project analysis results
  */
-
 // Interface for stored context data
 export interface StoredProjectContext {
   id: string;
@@ -48,11 +50,9 @@ export async function storeProjectContext(
 ): Promise<string> {
   const projectHash = hashProjectPath(projectPath);
 
-  // Check if we already have an entry for this project
   const existingContext = await getLatestProjectContext(userId, projectPath);
 
   if (existingContext) {
-    // Increment version and update
     const contextData = {
       projectPath,
       projectHash,
@@ -66,7 +66,6 @@ export async function storeProjectContext(
     await updateDoc(contextRef, contextData);
     return existingContext.id;
   } else {
-    // Create new entry
     const contextData = {
       projectPath,
       projectHash,
@@ -121,7 +120,6 @@ export async function getLatestProjectContext(
 export async function getUserProjects(
   userId: string
 ): Promise<StoredProjectContext[]> {
-  // First, get the latest version of each project hash
   const projectHashes = new Set<string>();
   const latestVersions = new Map<string, StoredProjectContext>();
 
@@ -177,7 +175,6 @@ export async function deleteProjectContext(
 export async function getProjectContextById(
   contextId: string
 ): Promise<StoredProjectContext | null> {
-  // Use admin SDK for server-side operations
   const docRef = adminDb.collection('projectContexts').doc(contextId);
   const docSnap = await docRef.get();
 

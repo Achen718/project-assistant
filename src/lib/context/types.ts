@@ -3,7 +3,9 @@
  */
 export interface Technology {
   name: string;
-  confidence: number;
+  version?: string;
+  type: 'language' | 'framework' | 'library' | 'tool' | 'database' | 'other';
+  confidence?: number;
 }
 
 /**
@@ -13,6 +15,7 @@ export interface CodePattern {
   name: string;
   description: string;
   examples?: string[];
+  locations?: string[];
 }
 
 /**
@@ -21,26 +24,69 @@ export interface CodePattern {
 export interface ArchitecturalPattern {
   name: string;
   description: string;
+  components?: string[];
+  locations?: string[];
 }
 
 /**
- * Structure representing analyzed project context information
+ * Coding convention identified in the project
+ */
+export interface CodingConvention {
+  name: string;
+  description?: string;
+  prevalence?: 'high' | 'medium' | 'low' | 'mixed';
+  examples?: string[];
+}
+
+/**
+ * User preference value
+ */
+export interface UserPreferenceValue {
+  value: string | number | boolean;
+  source?: 'explicit' | 'inferred';
+}
+
+/**
+ * User preferences
+ */
+export interface UserPreferences {
+  [preferenceKey: string]: UserPreferenceValue;
+}
+
+/**
+ * Structure representing analyzed project context information (Stored Version)
  */
 export interface ProjectContext {
   projectId: string;
-  technologies?: string[];
-  frameworks?: string[];
-  architecture?: string[];
+  projectName?: string;
+
+  technologies?: Technology[];
+  frameworks?: Technology[];
+
+  architecturalPatterns?: ArchitecturalPattern[];
   codePatterns?: CodePattern[];
-  bestPractices?: string[];
-  lastUpdated?: number;
+  codingConventions?: CodingConvention[];
+
+  fileStructureSummary?: {
+    mainEntryPoints?: string[];
+    commonDirectories?: string[];
+    recognizedConfigFiles?: string[];
+  };
+
+  bestPracticesObserved?: string[];
+
+  userPreferences?: UserPreferences;
+
+  lastAnalyzed: string;
 }
 
 /**
- * Result of a project analysis operation
+ * Result of a project analysis operation, as returned by an API endpoint
+ * (This links the stored ProjectContext to an ID and timestamp)
  */
-export interface AnalysisResult {
+export interface StoredAnalysisResult {
   projectId: string;
   context: ProjectContext;
-  timestamp: number;
+  analysisTimestamp: number;
+  storageTimestamp?: number;
 }

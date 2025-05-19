@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Message, ChatSession } from '@/lib/types';
-import { ProjectContext } from '@/lib/analyzer';
+import { AnalyzerProjectContext as ProjectContext } from '@/lib/analyzer';
 import { StoredProjectContext } from '@/lib/analyzer/context-storage';
 
 export interface AIAssistantClientOptions {
@@ -63,7 +63,6 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       };
     },
 
-    // Session management
     getSessions: async (): Promise<ChatSession[]> => {
       const response = await fetchWithAuth('/sessions');
 

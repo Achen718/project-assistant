@@ -14,7 +14,7 @@ export type { Message, ChatSession } from '../src/lib/types';
 // Export analyzer
 export { analyzeProject } from '../src/lib/analyzer';
 export type {
-  ProjectContext,
+  AnalyzerProjectContext,
   Technology,
   CodePattern,
   ArchitecturalPattern,
@@ -29,3 +29,37 @@ export {
   deleteProjectContext,
 } from '../src/lib/analyzer/context-storage';
 export type { StoredProjectContext } from '../src/lib/analyzer/context-storage';
+
+export {
+  processChat,
+  processChatStream,
+  createSystemPrompt,
+  createSystemPromptWithContext,
+} from '../src/lib/ai/server';
+export { createAssistantChain } from '../src/lib/ai/chains';
+export { generateContextAwareResponse } from '../src/lib/ai/context-adapter';
+
+export type {
+  CodingConvention,
+  PackageJson,
+  TSConfig,
+  NextConfig,
+} from '../src/lib/analyzer';
+export {
+  analyzePackageJson,
+  analyzeFileStructure,
+  analyzeCodeQuality,
+} from '../src/lib/analyzer';
+
+export { getProjectContextById } from '../src/lib/analyzer/context-storage';
+
+export type {
+  ProjectContext as DomainProjectContext,
+  Technology as DomainTechnology,
+  CodePattern as DomainCodePattern,
+  ArchitecturalPattern as DomainArchitecturalPattern,
+  CodingConvention as DomainCodingConvention,
+  UserPreferences,
+  UserPreferenceValue,
+  StoredAnalysisResult as DomainStoredAnalysisResult,
+} from '../src/lib/context/types';

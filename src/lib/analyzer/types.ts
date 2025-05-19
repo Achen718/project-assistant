@@ -3,37 +3,46 @@ export interface Technology {
   version?: string;
   type: 'language' | 'framework' | 'library' | 'tool' | 'database' | 'other';
   usage?: 'core' | 'development' | 'optional';
+  confidence?: number;
 }
 
 export interface CodePattern {
   name: string;
   description: string;
-  examples: string[];
-  locations: string[];
+  examples?: string[];
+  locations?: string[];
 }
 
 export interface ArchitecturalPattern {
   name: string;
   description: string;
-  components: string[];
-  locations: string[];
+  components?: string[];
+  locations?: string[];
 }
 
-export interface ProjectContext {
+export interface CodingConvention {
   name: string;
-  technologies: Technology[];
-  patterns: {
-    code: CodePattern[];
-    architectural: ArchitecturalPattern[];
+  description?: string;
+  prevalence?: 'high' | 'medium' | 'low' | 'mixed';
+  examples?: string[];
+}
+
+export interface AnalyzerProjectContext {
+  projectName?: string;
+  technologies?: Technology[];
+  architecturalPatterns?: ArchitecturalPattern[];
+  codePatterns?: CodePattern[];
+  codingConventions?: CodingConvention[];
+  bestPracticesObserved?: string[];
+  fileStructure?: {
+    directories?: string[];
+    entryPoints?: string[];
+    configFiles?: string[];
   };
-  fileStructure: {
-    directories: string[];
-    entryPoints: string[];
-    configFiles: string[];
-  };
-  metadata: {
+  analysisMetadata: {
     analyzedAt: Date;
-    confidence: number;
+    overallConfidence?: number;
+    analyzerVersion?: string;
   };
 }
 
@@ -71,11 +80,12 @@ export interface NextConfig {
 }
 
 export interface AnalyzerResult {
-  context: ProjectContext;
-  raw: {
+  context: AnalyzerProjectContext;
+  rawFileContents?: {
     packageJson?: PackageJson;
     tsConfig?: TSConfig;
     nextConfig?: NextConfig;
-    otherConfigs: Record<string, unknown>;
+    otherRelevantConfigs?: Record<string, string>;
   };
+  errors?: Array<{ message: string; sourceAnalyzer?: string }>;
 }

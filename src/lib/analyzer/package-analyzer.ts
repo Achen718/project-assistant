@@ -1,42 +1,66 @@
 import { PackageJson, Technology } from './types';
 
+// NEW Interface for the analyzer's output
+export interface PackageAnalyzerResult {
+  projectName?: string;
+  technologies: Technology[];
+  // rawPackageJson: PackageJson; // The orchestrator will handle storing raw files
+}
+
 // Technology categorization knowledge base
 const TECH_CATEGORIES: Record<
   string,
-  { type: Technology['type']; usage: Technology['usage'] }
+  { type: Technology['type']; usage: Technology['usage']; confidence?: number } // Added optional confidence here for defaults
 > = {
-  react: { type: 'framework', usage: 'core' },
-  next: { type: 'framework', usage: 'core' },
-  vue: { type: 'framework', usage: 'core' },
-  angular: { type: 'framework', usage: 'core' },
-  typescript: { type: 'language', usage: 'core' },
-  tailwindcss: { type: 'library', usage: 'core' },
-  firebase: { type: 'database', usage: 'core' },
-  'firebase-admin': { type: 'library', usage: 'core' },
-  jest: { type: 'tool', usage: 'development' },
-  '@testing-library': { type: 'library', usage: 'development' },
-  eslint: { type: 'tool', usage: 'development' },
-  tsup: { type: 'tool', usage: 'development' },
-  zod: { type: 'library', usage: 'core' },
-  ai: { type: 'library', usage: 'core' },
-  '@ai-sdk': { type: 'library', usage: 'core' },
-  '@langchain': { type: 'library', usage: 'core' },
-  axios: { type: 'library', usage: 'core' },
-  zustand: { type: 'library', usage: 'core' },
-  '@radix-ui': { type: 'library', usage: 'core' },
-  'class-variance-authority': { type: 'library', usage: 'core' },
-  'lucide-react': { type: 'library', usage: 'core' },
-  clsx: { type: 'library', usage: 'core' },
-  'tailwind-merge': { type: 'library', usage: 'core' },
-  '@heroicons': { type: 'library', usage: 'core' },
+  react: { type: 'framework', usage: 'core', confidence: 1.0 },
+  next: { type: 'framework', usage: 'core', confidence: 1.0 },
+  vue: { type: 'framework', usage: 'core', confidence: 1.0 },
+  angular: { type: 'framework', usage: 'core', confidence: 1.0 },
+  typescript: { type: 'language', usage: 'core', confidence: 1.0 },
+  tailwindcss: { type: 'library', usage: 'core', confidence: 1.0 },
+  firebase: { type: 'database', usage: 'core', confidence: 1.0 },
+  'firebase-admin': { type: 'library', usage: 'core', confidence: 1.0 },
+  jest: { type: 'tool', usage: 'development', confidence: 0.9 },
+  '@testing-library': {
+    type: 'library',
+    usage: 'development',
+    confidence: 0.9,
+  },
+  eslint: { type: 'tool', usage: 'development', confidence: 0.9 },
+  prettier: { type: 'tool', usage: 'development', confidence: 0.9 }, // Added Prettier
+  tsup: { type: 'tool', usage: 'development', confidence: 0.9 },
+  zod: { type: 'library', usage: 'core', confidence: 1.0 },
+  ai: { type: 'library', usage: 'core', confidence: 1.0 }, // Vercel AI SDK (general)
+  '@ai-sdk/react': { type: 'library', usage: 'core', confidence: 1.0 }, // Vercel AI SDK for React
+  '@ai-sdk/openai': { type: 'library', usage: 'core', confidence: 1.0 }, // Vercel AI SDK for OpenAI
+  langchain: { type: 'library', usage: 'core', confidence: 1.0 }, // Langchain (general)
+  '@langchain/core': { type: 'library', usage: 'core', confidence: 1.0 },
+  '@langchain/openai': { type: 'library', usage: 'core', confidence: 1.0 },
+  axios: { type: 'library', usage: 'core', confidence: 1.0 },
+  zustand: { type: 'library', usage: 'core', confidence: 1.0 },
+  '@radix-ui': { type: 'library', usage: 'core', confidence: 1.0 },
+  'class-variance-authority': {
+    type: 'library',
+    usage: 'core',
+    confidence: 1.0,
+  }, // Often with Shadcn
+  'lucide-react': { type: 'library', usage: 'core', confidence: 1.0 }, // Often with Shadcn
+  clsx: { type: 'library', usage: 'core', confidence: 1.0 },
+  'tailwind-merge': { type: 'library', usage: 'core', confidence: 1.0 }, // Often with Shadcn
+  '@heroicons': { type: 'library', usage: 'core', confidence: 1.0 },
 };
 
 /**
  * Analyzes a package.json file to extract technology information
  */
-export function analyzePackageJson(packageJson: PackageJson): Technology[] {
-  if (!packageJson) return [];
+export function analyzePackageJson(
+  packageJson: PackageJson
+  // filePath: string // Path to package.json, if needed for context later
+): PackageAnalyzerResult {
+  // Updated return type
+  if (!packageJson) return { technologies: [] };
 
+  const projectName = packageJson.name;
   const technologies: Technology[] = [];
   const allDependencies = {
     ...packageJson.dependencies,
@@ -44,7 +68,7 @@ export function analyzePackageJson(packageJson: PackageJson): Technology[] {
     ...packageJson.peerDependencies,
   };
 
-  // Add TypeScript if tsconfig exists
+  // Add TypeScript if tsconfig exists or typescript is a dependency
   if (
     packageJson.devDependencies?.typescript ||
     packageJson.dependencies?.typescript
@@ -54,6 +78,7 @@ export function analyzePackageJson(packageJson: PackageJson): Technology[] {
       version: allDependencies.typescript,
       type: 'language',
       usage: 'core',
+      confidence: TECH_CATEGORIES.typescript.confidence || 1.0,
     });
   }
 
@@ -62,146 +87,181 @@ export function analyzePackageJson(packageJson: PackageJson): Technology[] {
     name: 'JavaScript',
     type: 'language',
     usage: 'core',
+    confidence: 1.0, // JS is fundamental
   });
 
   // Process dependencies to identify technologies
   for (const [depName, version] of Object.entries(allDependencies)) {
     // Find matching tech in our knowledge base
-    const matchedTech = Object.entries(TECH_CATEGORIES).find(([techName]) => {
-      return (
-        depName === techName ||
-        depName.startsWith(techName + '-') ||
-        depName.startsWith('@' + techName + '/')
-      );
-    });
+    const matchedTechEntry = Object.entries(TECH_CATEGORIES).find(
+      ([techKey]) => {
+        return (
+          depName.toLowerCase() === techKey.toLowerCase() || // Exact match (case-insensitive)
+          depName.toLowerCase().startsWith(techKey.toLowerCase() + '-') || // e.g., framework-specific-plugin
+          depName.toLowerCase().startsWith('@' + techKey.toLowerCase() + '/') // e.g., @scope/framework
+        );
+      }
+    );
 
-    if (matchedTech) {
-      const [techName, category] = matchedTech;
+    if (matchedTechEntry) {
+      const [techKey, categoryDetails] = matchedTechEntry;
+      const properName = getProperTechName(depName, techKey); // Pass techKey for better naming
 
-      // Skip if we already added this tech with a more specific name
+      // Avoid duplicates if a more generic entry (e.g. 'react') would override a specific one already added.
+      // Or if the exact same dependency name was already processed (e.g. from dev vs peer)
       if (
         technologies.some(
-          (t) => t.name.toLowerCase() === techName.toLowerCase()
+          (t) => t.name.toLowerCase() === properName.toLowerCase()
         )
       ) {
+        // Potentially update version if a new one is found, or merge info. For now, skip.
         continue;
       }
-
-      // Get proper name (capitalized)
-      const properName = getProperTechName(depName);
 
       technologies.push({
         name: properName,
         version: version as string,
-        type: category.type,
-        usage: category.usage,
+        type: categoryDetails.type,
+        usage: categoryDetails.usage,
+        confidence: categoryDetails.confidence || 0.9, // Default confidence for matched tech
       });
     } else {
       // Unknown technology, make best guess
+      // Avoid adding if it's a sub-package of an already identified technology
+      const isSubPackage = technologies.some((tech) =>
+        depName.startsWith(tech.name.toLowerCase())
+      );
+      if (isSubPackage) continue;
+
       technologies.push({
-        name: depName,
+        name: getProperTechName(depName), // Get a capitalized name
         version: version as string,
         type: packageJson.devDependencies?.[depName] ? 'tool' : 'library',
         usage: packageJson.devDependencies?.[depName] ? 'development' : 'core',
+        confidence: 0.6, // Lower confidence for unknown/guessed tech
       });
     }
   }
 
-  // Identify React version (normal or modern)
-  const reactVersion = allDependencies?.react;
-  if (reactVersion) {
-    const isReact18OrHigher =
-      reactVersion &&
-      (reactVersion.startsWith('18') ||
-        reactVersion.startsWith('^18') ||
-        reactVersion.startsWith('19') ||
-        reactVersion.startsWith('^19'));
+  // Consolidate React and Next.js detection for clarity and to avoid duplicates.
+  // The main loop should handle their base detection if they are in TECH_CATEGORIES.
+  // This section can refine them.
 
-    // Update or add React with version indication
-    const reactIndex = technologies.findIndex((t) => t.name === 'React');
-    if (reactIndex >= 0) {
-      technologies[reactIndex].name = isReact18OrHigher
-        ? 'React (Modern)'
-        : 'React';
-    } else {
-      technologies.push({
-        name: isReact18OrHigher ? 'React (Modern)' : 'React',
-        version: reactVersion as string,
-        type: 'framework',
-        usage: 'core',
-      });
+  const reactTech = technologies.find((t) => t.name.toLowerCase() === 'react');
+  if (reactTech && reactTech.version) {
+    const isReactModern =
+      reactTech.version.startsWith('18') ||
+      reactTech.version.startsWith('^18') ||
+      reactTech.version.startsWith('~18') ||
+      reactTech.version.startsWith('19') ||
+      reactTech.version.startsWith('^19') ||
+      reactTech.version.startsWith('~19');
+    if (isReactModern) {
+      reactTech.name = 'React (Modern)';
+      // reactTech.description = "React 18+ with Concurrent Features"; // Optional: Add description
     }
   }
 
-  // Identify Next.js (App Router vs Pages Router)
-  const nextVersion = allDependencies?.next;
-  if (nextVersion) {
-    // Next.js 13+ can use App Router
+  const nextTech = technologies.find((t) => t.name.toLowerCase() === 'next.js');
+  if (nextTech && nextTech.version) {
     const isNextModern =
-      nextVersion &&
-      (nextVersion.startsWith('13') ||
-        nextVersion.startsWith('^13') ||
-        nextVersion.startsWith('14') ||
-        nextVersion.startsWith('^14') ||
-        nextVersion.startsWith('15') ||
-        nextVersion.startsWith('^15'));
-
-    const nextIndex = technologies.findIndex((t) => t.name.includes('Next.js'));
-    if (nextIndex >= 0) {
-      // We'll need to analyze the file structure later to confirm App Router usage
-      technologies[nextIndex].name = isNextModern ? 'Next.js (13+)' : 'Next.js';
-    } else {
-      technologies.push({
-        name: isNextModern ? 'Next.js (13+)' : 'Next.js',
-        version: nextVersion as string,
-        type: 'framework',
-        usage: 'core',
-      });
+      nextTech.version.startsWith('13') ||
+      nextTech.version.startsWith('^13') ||
+      nextTech.version.startsWith('~13') ||
+      nextTech.version.startsWith('14') ||
+      nextTech.version.startsWith('^14') ||
+      nextTech.version.startsWith('~14') ||
+      nextTech.version.startsWith('15') ||
+      nextTech.version.startsWith('^15') ||
+      nextTech.version.startsWith('~15');
+    if (isNextModern) {
+      nextTech.name = 'Next.js (Modern)';
+      // nextTech.description = "Next.js 13+ (App Router capable)"; // Optional: Add description
     }
   }
 
-  return technologies;
+  return { projectName, technologies };
 }
 
 /**
  * Returns a proper display name for a technology
  */
-function getProperTechName(depName: string): string {
-  // Handle namespaced packages
-  if (depName.startsWith('@')) {
-    const [namespace, name] = depName.substring(1).split('/');
-    if (name) {
-      return `${capitalizeFirstLetter(namespace)} ${capitalizeFirstLetter(
-        name
-      )}`;
+function getProperTechName(depName: string, techKey?: string): string {
+  // Use the key from TECH_CATEGORIES for known items for consistent casing
+  if (techKey && TECH_CATEGORIES[techKey]) {
+    // Special handling for namespaced packages to use a base name if defined
+    if (depName.startsWith('@') && techKey.startsWith('@')) {
+      // e.g. @radix-ui/react-slot and @radix-ui
+      const baseKeyName = Object.keys(TECH_SPECIAL_NAMES).find(
+        (k) => techKey.toLowerCase() === k.toLowerCase()
+      );
+      if (baseKeyName) return TECH_SPECIAL_NAMES[baseKeyName];
+      return capitalizeFirstLetter(techKey.substring(1).split('/')[0]); // e.g. Radix-ui
     }
+    const specialNameKey = Object.keys(TECH_SPECIAL_NAMES).find(
+      (k) => techKey.toLowerCase() === k.toLowerCase()
+    );
+    if (specialNameKey) return TECH_SPECIAL_NAMES[specialNameKey];
+    return capitalizeFirstLetter(techKey); // Fallback to capitalized key
   }
 
-  // Special cases
-  const specialCases: Record<string, string> = {
-    tailwindcss: 'Tailwind CSS',
-    nextjs: 'Next.js',
-    next: 'Next.js',
-    react: 'React',
-    typescript: 'TypeScript',
-    javascript: 'JavaScript',
-    firebase: 'Firebase',
-    'firebase-admin': 'Firebase Admin',
-    eslint: 'ESLint',
-    jest: 'Jest',
-    zod: 'Zod',
-    axios: 'Axios',
-    zustand: 'Zustand',
-  };
-
-  if (specialCases[depName.toLowerCase()]) {
-    return specialCases[depName.toLowerCase()];
+  // Handle other namespaced packages if not directly in TECH_CATEGORIES key
+  if (depName.startsWith('@')) {
+    const parts = depName.substring(1).split('/');
+    const namespace = capitalizeFirstLetter(parts[0]);
+    const packageName = parts[1] ? capitalizeFirstLetter(parts[1]) : '';
+    if (packageName) return `${namespace} ${packageName}`;
+    return namespace;
   }
 
-  // Default case: capitalize each word
-  return depName.split('-').map(capitalizeFirstLetter).join(' ');
+  // Special cases for depName if not found via techKey
+  const specialNameKeyFromDep = Object.keys(TECH_SPECIAL_NAMES).find(
+    (k) => depName.toLowerCase() === k.toLowerCase()
+  );
+  if (specialNameKeyFromDep) {
+    return TECH_SPECIAL_NAMES[specialNameKeyFromDep];
+  }
+
+  // Default capitalization for unknown packages
+  return depName
+    .split('-')
+    .map((part) => capitalizeFirstLetter(part))
+    .join(' ');
 }
 
+// Moved special names to a separate constant for clarity in getProperTechName
+const TECH_SPECIAL_NAMES: Record<string, string> = {
+  react: 'React',
+  next: 'Next.js',
+  vue: 'Vue.js', // Added .js for consistency
+  angular: 'Angular',
+  typescript: 'TypeScript',
+  tailwindcss: 'Tailwind CSS',
+  firebase: 'Firebase',
+  'firebase-admin': 'Firebase Admin',
+  eslint: 'ESLint',
+  prettier: 'Prettier',
+  jest: 'Jest',
+  tsup: 'TSup', // Capitalized
+  zod: 'Zod',
+  ai: 'Vercel AI SDK', // More descriptive
+  '@ai-sdk/react': 'Vercel AI SDK (React)',
+  '@ai-sdk/openai': 'Vercel AI SDK (OpenAI)',
+  langchain: 'Langchain',
+  '@langchain/core': 'Langchain Core',
+  '@langchain/openai': 'Langchain OpenAI',
+  axios: 'Axios',
+  zustand: 'Zustand',
+  '@radix-ui': 'Radix UI', // Base name for Radix
+  'class-variance-authority': 'Class Variance Authority',
+  'lucide-react': 'Lucide React',
+  clsx: 'clsx', // Often kept lowercase
+  'tailwind-merge': 'Tailwind Merge',
+  '@heroicons': 'Heroicons',
+  // Add more as needed
+};
+
 function capitalizeFirstLetter(string: string): string {
+  if (!string) return '';
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
