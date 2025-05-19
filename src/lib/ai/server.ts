@@ -1,12 +1,17 @@
 import { createAssistantChain } from './chains';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
+// import { groq } from '@ai-sdk/groq'; // Removed unused import
 import type { Message } from 'ai';
 import { generateContextAwareResponse } from './context-adapter';
 import { getProjectContext } from '@/lib/firebase/context-service';
 import { ProjectContext } from '@/lib/context/types';
 
 const openaiModel = openai('gpt-4o');
+// To use Groq (ensure GROQ_API_KEY is in .env.local):
+// import { groq } from '@ai-sdk/groq';
+// const activeModel = groq('llama3-8b-8192');
+// And use activeModel below instead of openaiModel
 
 export async function processChat(
   message: string,
@@ -17,8 +22,10 @@ export async function processChat(
   try {
     if (projectId) {
       const projectContext = await getProjectContext(projectId);
+      // TODO: Review if generateContextAwareResponse needs to be aware of pre-augmented message
+      // or if it should receive raw message and RAG context separately.
       const response = await generateContextAwareResponse(
-        message,
+        message, // This is potentially augmentedMessage from the API route
         history,
         projectContext
       );
@@ -34,7 +41,7 @@ export async function processChat(
     }));
 
     const response = await chain.invoke({
-      input: message,
+      input: message, // This is potentially augmentedMessage from the API route
       chat_history: formattedHistory,
     });
 
@@ -46,16 +53,21 @@ export async function processChat(
 }
 
 export async function processChatStream(
-  message: string,
+  message: string, // This is potentially augmentedMessage from the API route
   history: Message[] = [],
   appContext?: string,
-  projectContext?: ProjectContext
+  projectContextInput?: ProjectContext // Renamed to avoid conflict with context fetched via projectId if that pattern changes
 ) {
   let systemPrompt = '';
 
-  if (projectContext) {
+  // Note: If projectContextInput is provided, it's the general context.
+  // The RAG context is already prepended to the 'message' variable by the API route.
+  if (projectContextInput) {
     try {
-      systemPrompt = createSystemPromptWithContext(appContext, projectContext);
+      systemPrompt = createSystemPromptWithContext(
+        appContext,
+        projectContextInput
+      );
     } catch (error) {
       console.error(
         'Error creating system prompt with project context:',
@@ -70,12 +82,12 @@ export async function processChatStream(
   const formattedMessages: Message[] = [
     { id: crypto.randomUUID(), role: 'system', content: systemPrompt },
     ...history,
-    { id: crypto.randomUUID(), role: 'user', content: message },
+    { id: crypto.randomUUID(), role: 'user', content: message }, // message here already contains RAG + original query
   ];
 
   try {
     return streamText({
-      model: openaiModel,
+      model: openaiModel, // or activeModel if using Groq/other
       messages: formattedMessages,
       temperature: 0.7,
       maxTokens: 2000,
@@ -93,9 +105,12 @@ export async function processChatStream(
  * Creates a basic system prompt based on application context
  */
 export function createSystemPrompt(appContext?: string): string {
-  return appContext
+  let basePrompt = appContext
     ? `You are an AI assistant for ${appContext}. Be helpful, concise, and friendly.`
     : 'You are a helpful AI assistant.';
+
+  basePrompt += `\nWhen responding, if the user's message contains "Retrieved Context from Codebase", please use that information as the primary source for your answer. If the retrieved context is not relevant or insufficient, use your general knowledge.`;
+  return basePrompt;
 }
 
 /**
@@ -103,23 +118,27 @@ export function createSystemPrompt(appContext?: string): string {
  */
 export function createSystemPromptWithContext(
   appContext?: string,
-  projectContext?: ProjectContext
+  projectContext?: ProjectContext // This is the broader project context, not the RAG snippets
 ): string {
-  let prompt = createSystemPrompt(appContext);
+  let prompt = createSystemPrompt(appContext); // Gets the base prompt which now includes RAG instruction
+
+  // Further instructions on how to use general project details in conjunction with RAG context.
+  prompt += `\nIn addition to any retrieved codebase snippets, consider the following general project details. Synthesize all available information for the most comprehensive answer.`;
 
   if (!projectContext) {
+    prompt += '\nNo general project details available for this session.';
     return prompt;
   }
 
-  prompt += `\n\nYou are assisting with a software project with the following context:`;
+  prompt += `\n\nGeneral Project Details:`;
 
   if (projectContext.technologies && projectContext.technologies.length > 0) {
-    prompt += '\n\nProject Technologies:';
+    prompt += '\nProject Technologies:';
     prompt += `\n${projectContext.technologies.map((t) => t.name).join(', ')}`;
   }
 
   if (projectContext.frameworks && projectContext.frameworks.length > 0) {
-    prompt += '\n\nFrameworks:';
+    prompt += '\nFrameworks:';
     prompt += `\n${projectContext.frameworks.map((f) => f.name).join(', ')}`;
   }
 
@@ -127,14 +146,14 @@ export function createSystemPromptWithContext(
     projectContext.architecturalPatterns &&
     projectContext.architecturalPatterns.length > 0
   ) {
-    prompt += '\n\nArchitecture:';
+    prompt += '\nArchitecture:';
     prompt += `\n${projectContext.architecturalPatterns
       .map((p) => p.name)
       .join(', ')}`;
   }
 
   if (projectContext.codePatterns && projectContext.codePatterns.length > 0) {
-    prompt += '\n\nCode Patterns:';
+    prompt += '\nCode Patterns:';
     for (const pattern of projectContext.codePatterns) {
       prompt += `\n- ${pattern.name}: ${pattern.description}`;
     }
@@ -144,18 +163,18 @@ export function createSystemPromptWithContext(
     projectContext.bestPracticesObserved &&
     projectContext.bestPracticesObserved.length > 0
   ) {
-    prompt += '\n\nBest Practices Observed:';
+    prompt += '\nBest Practices Observed:';
     for (const practice of projectContext.bestPracticesObserved) {
       prompt += `\n- ${practice}`;
     }
   }
 
   prompt += `\n\nWhen answering questions about this project:
-1. Consider the technologies and frameworks being used
-2. Follow the established architectural patterns
-3. Suggest solutions that align with the existing codebase
-4. Be specific and reference relevant technologies from the stack
-5. Use code examples that match the project's patterns and style`;
+1. Prioritize information from any "Retrieved Context from Codebase" in the user's message.
+2. Supplement with these "General Project Details" (technologies, patterns, etc.) for broader understanding.
+3. If conflicting, explicitly state the source of your information.
+4. Suggest solutions that align with the existing codebase and its established patterns.
+5. Use code examples that match the project's style if possible.`;
 
   return prompt;
 }
