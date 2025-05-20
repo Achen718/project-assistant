@@ -1,5 +1,8 @@
 import * as react_jsx_runtime from 'react/jsx-runtime';
+import * as ai from 'ai';
 import { Message as Message$1 } from 'ai';
+import * as _langchain_core_messages from '@langchain/core/messages';
+import { RunnableSequence } from '@langchain/core/runnables';
 
 type Message = Message$1;
 interface ChatSession {
@@ -40,39 +43,47 @@ interface ChatInputProps {
 }
 declare const ChatInput: ({ onSendMessage, disabled, placeholder, }: ChatInputProps) => react_jsx_runtime.JSX.Element;
 
-interface Technology {
+interface Technology$1 {
     name: string;
     version?: string;
     type: 'language' | 'framework' | 'library' | 'tool' | 'database' | 'other';
     usage?: 'core' | 'development' | 'optional';
+    confidence?: number;
 }
-interface CodePattern {
+interface CodePattern$1 {
     name: string;
     description: string;
-    examples: string[];
-    locations: string[];
+    examples?: string[];
+    locations?: string[];
 }
-interface ArchitecturalPattern {
+interface ArchitecturalPattern$1 {
     name: string;
     description: string;
-    components: string[];
-    locations: string[];
+    components?: string[];
+    locations?: string[];
 }
-interface ProjectContext {
+interface CodingConvention$1 {
     name: string;
-    technologies: Technology[];
-    patterns: {
-        code: CodePattern[];
-        architectural: ArchitecturalPattern[];
+    description?: string;
+    prevalence?: 'high' | 'medium' | 'low' | 'mixed';
+    examples?: string[];
+}
+interface AnalyzerProjectContext {
+    projectName?: string;
+    technologies?: Technology$1[];
+    architecturalPatterns?: ArchitecturalPattern$1[];
+    codePatterns?: CodePattern$1[];
+    codingConventions?: CodingConvention$1[];
+    bestPracticesObserved?: string[];
+    fileStructure?: {
+        directories?: string[];
+        entryPoints?: string[];
+        configFiles?: string[];
     };
-    fileStructure: {
-        directories: string[];
-        entryPoints: string[];
-        configFiles: string[];
-    };
-    metadata: {
+    analysisMetadata: {
         analyzedAt: Date;
-        confidence: number;
+        overallConfidence?: number;
+        analyzerVersion?: string;
     };
 }
 interface PackageJson {
@@ -101,14 +112,63 @@ interface NextConfig {
     [key: string]: unknown;
 }
 interface AnalyzerResult {
-    context: ProjectContext;
-    raw: {
+    context: AnalyzerProjectContext;
+    rawFileContents?: {
         packageJson?: PackageJson;
         tsConfig?: TSConfig;
         nextConfig?: NextConfig;
-        otherConfigs: Record<string, unknown>;
+        otherRelevantConfigs?: Record<string, string>;
+    };
+    errors?: Array<{
+        message: string;
+        sourceAnalyzer?: string;
+    }>;
+}
+
+interface PackageAnalyzerResult {
+    projectName?: string;
+    technologies: Technology$1[];
+}
+/**
+ * Analyzes a package.json file to extract technology information
+ */
+declare function analyzePackageJson(packageJson: PackageJson): PackageAnalyzerResult;
+
+interface FileStructureAnalyzerResult {
+    fileStructure?: {
+        directories?: string[];
+        commonDirs?: string[];
+        entryPoints?: string[];
+        configFiles?: string[];
+    };
+    architecturalPatterns?: ArchitecturalPattern$1[];
+    codePatterns?: CodePattern$1[];
+}
+/**
+ * Analyzes the project file structure from a list of all file paths.
+ * @param allProjectFiles - Array of file paths, relative to project root.
+ * @param rootDir - The root directory path (used for context if needed, but operations should use relative paths from allProjectFiles).
+ */
+declare function analyzeFileStructure(allProjectFiles: string[]): FileStructureAnalyzerResult;
+
+interface CodeQualityResult {
+    patterns: CodePattern$1[];
+    bestPractices: {
+        name: string;
+        detected: boolean;
+        details?: string;
+    }[];
+    metrics: {
+        componentCount: number;
+        hooksCount: number;
+        utilsCount: number;
+        apiRoutesCount: number;
     };
 }
+/**
+ * Analyzes code quality and best practices
+ */
+declare function analyzeCodeQuality(rootDir: string): Promise<CodeQualityResult>;
 
 /**
  * Analyzes a project codebase and extracts contextual information
@@ -123,7 +183,7 @@ interface StoredProjectContext {
     projectPath: string;
     projectHash: string;
     userId: string;
-    context: ProjectContext;
+    context: AnalyzerProjectContext;
     createdAt: number;
     updatedAt: number;
     version: number;
@@ -144,6 +204,11 @@ declare function getUserProjects(userId: string): Promise<StoredProjectContext[]
  * Delete a project context and all its versions
  */
 declare function deleteProjectContext(userId: string, projectPath: string): Promise<void>;
+/**
+ * Admin function to get project context by ID
+ * This is useful for API routes where the user ID might be coming from auth
+ */
+declare function getProjectContextById(contextId: string): Promise<StoredProjectContext | null>;
 
 interface AIAssistantClientOptions {
     apiUrl: string;
@@ -165,7 +230,7 @@ declare function createAIAssistant(options: AIAssistantClientOptions): {
     deleteSession: (sessionId: string) => Promise<void>;
     streamMessage: (message: string, history: Message[] | undefined, onChunk: (chunk: string) => void, contextId?: string) => Promise<Message>;
     analyzeProject: (projectPath: string) => Promise<{
-        context: ProjectContext;
+        context: AnalyzerProjectContext;
         contextId: string;
     }>;
     getUserProjects: () => Promise<StoredProjectContext[]>;
@@ -173,4 +238,107 @@ declare function createAIAssistant(options: AIAssistantClientOptions): {
     deleteProjectContext: (contextId: string) => Promise<void>;
 };
 
-export { type AIAssistantClientOptions, AIChatComponent, type AnalyzerResult, type ArchitecturalPattern, ChatInput, type ChatSession, type CodePattern, type Message, MessageItem, MessageList, type ProjectContext, type StoredProjectContext, type Technology, analyzeProject, createAIAssistant, deleteProjectContext, getLatestProjectContext, getUserProjects, storeProjectContext };
+/**
+ * Technology stack entry with name and confidence level
+ */
+interface Technology {
+    name: string;
+    version?: string;
+    type: 'language' | 'framework' | 'library' | 'tool' | 'database' | 'other';
+    confidence?: number;
+}
+/**
+ * Code pattern identified in the project
+ */
+interface CodePattern {
+    name: string;
+    description: string;
+    examples?: string[];
+    locations?: string[];
+}
+/**
+ * Architectural pattern identified in the project
+ */
+interface ArchitecturalPattern {
+    name: string;
+    description: string;
+    components?: string[];
+    locations?: string[];
+}
+/**
+ * Coding convention identified in the project
+ */
+interface CodingConvention {
+    name: string;
+    description?: string;
+    prevalence?: 'high' | 'medium' | 'low' | 'mixed';
+    examples?: string[];
+}
+/**
+ * User preference value
+ */
+interface UserPreferenceValue {
+    value: string | number | boolean;
+    source?: 'explicit' | 'inferred';
+}
+/**
+ * User preferences
+ */
+interface UserPreferences {
+    [preferenceKey: string]: UserPreferenceValue;
+}
+/**
+ * Structure representing analyzed project context information (Stored Version)
+ */
+interface ProjectContext {
+    projectId: string;
+    projectName?: string;
+    technologies?: Technology[];
+    frameworks?: Technology[];
+    architecturalPatterns?: ArchitecturalPattern[];
+    codePatterns?: CodePattern[];
+    codingConventions?: CodingConvention[];
+    fileStructureSummary?: {
+        mainEntryPoints?: string[];
+        commonDirectories?: string[];
+        recognizedConfigFiles?: string[];
+    };
+    bestPracticesObserved?: string[];
+    userPreferences?: UserPreferences;
+    lastAnalyzed: string;
+}
+/**
+ * Result of a project analysis operation, as returned by an API endpoint
+ * (This links the stored ProjectContext to an ID and timestamp)
+ */
+interface StoredAnalysisResult {
+    projectId: string;
+    context: ProjectContext;
+    analysisTimestamp: number;
+    storageTimestamp?: number;
+}
+
+declare function processChat(message: string, history?: Message$1[], appContext?: string, projectId?: string): Promise<_langchain_core_messages.MessageContent>;
+declare function processChatStream(message: string, // This is potentially augmentedMessage from the API route
+history?: Message$1[], appContext?: string, projectContextInput?: ProjectContext): Promise<Response | ai.StreamTextResult<ai.ToolSet, never>>;
+/**
+ * Creates a basic system prompt based on application context
+ */
+declare function createSystemPrompt(appContext?: string): string;
+/**
+ * Creates a detailed system prompt that incorporates project context
+ */
+declare function createSystemPromptWithContext(appContext?: string, projectContext?: ProjectContext): string;
+
+declare function createAssistantChain(systemPrompt: string, modelName?: string, apiKey?: string): RunnableSequence<any, _langchain_core_messages.AIMessageChunk>;
+
+/**
+ * Context adapter that enhances AI responses with project context
+ */
+declare function generateContextAwareResponse(message: string, history: Message$1[], context: ProjectContext | null, config?: {
+    streaming?: boolean;
+    apiKey?: string;
+    model?: string;
+}): Promise<string>;
+
+export { type AIAssistantClientOptions, AIChatComponent, type AnalyzerProjectContext, type AnalyzerResult, type ArchitecturalPattern$1 as ArchitecturalPattern, ChatInput, type ChatSession, type CodePattern$1 as CodePattern, type CodingConvention$1 as CodingConvention, type ArchitecturalPattern as DomainArchitecturalPattern, type CodePattern as DomainCodePattern, type CodingConvention as DomainCodingConvention, type ProjectContext as DomainProjectContext, type StoredAnalysisResult as DomainStoredAnalysisResult, type Technology as DomainTechnology, type Message, MessageItem, MessageList, type NextConfig, type PackageJson, type StoredProjectContext, type TSConfig, type Technology$1 as Technology, type UserPreferenceValue, type UserPreferences, analyzeCodeQuality, analyzeFileStructure, analyzePackageJson, analyzeProject, createAIAssistant, createAssistantChain, createSystemPrompt, createSystemPromptWithContext, deleteProjectContext, generateContextAwareResponse, getLatestProjectContext, getProjectContextById, getUserProjects, processChat, processChatStream, storeProjectContext };
