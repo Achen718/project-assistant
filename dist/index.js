@@ -937,26 +937,35 @@ var _prompts = require('@langchain/core/prompts');
 
 // src/lib/ai/models.ts
 var _openai = require('@langchain/openai');
+var _groq = require('@langchain/groq');
 function createChatModel(modelName, apiKey, options = {}) {
-  const key = apiKey || process.env.OPENAI_API_KEY;
-  if (modelName.includes("gpt")) {
-    return new (0, _openai.ChatOpenAI)({
-      modelName,
-      openAIApiKey: key,
+  const groqApiKey2 = apiKey || process.env.GROQ_API_KEY;
+  if (groqApiKey2) {
+    console.log("Using Groq model via Langchain:", modelName);
+    return new (0, _groq.ChatGroq)({
+      model: modelName === "default" ? "llama3-8b-8192" : modelName,
+      apiKey: groqApiKey2,
       ...options
     });
   }
-  return new (0, _openai.ChatOpenAI)({
-    modelName: "gpt-4o",
-    openAIApiKey: key,
-    ...options
-  });
+  const openaiApiKey = apiKey || process.env.OPENAI_API_KEY;
+  if (openaiApiKey) {
+    console.log("Falling back to OpenAI model via Langchain:", modelName);
+    return new (0, _openai.ChatOpenAI)({
+      modelName: modelName === "default" ? "gpt-3.5-turbo" : modelName,
+      openAIApiKey: openaiApiKey,
+      ...options
+    });
+  }
+  throw new Error(
+    "No API key configured for Groq or OpenAI for Langchain chat model."
+  );
 }
 
 // src/lib/ai/chains.ts
 var _runnables = require('@langchain/core/runnables');
-function createAssistantChain(systemPrompt, modelName = "gpt-4o", apiKey) {
-  const model = createChatModel(modelName, apiKey);
+function createAssistantChain(systemPrompt, modelName = "default", apiKey, llmOptions = { maxRetries: 2 }) {
+  const model = createChatModel(modelName, apiKey, llmOptions);
   const prompt = _prompts.ChatPromptTemplate.fromMessages([
     ["system", systemPrompt],
     ["human", "{input}"]
@@ -966,7 +975,7 @@ function createAssistantChain(systemPrompt, modelName = "gpt-4o", apiKey) {
 
 // src/lib/ai/server.ts
 var _ai = require('ai');
-var _openai3 = require('@ai-sdk/openai');
+var _groq3 = require('@ai-sdk/groq');
 
 // src/lib/ai/context-adapter.ts
 
@@ -1068,14 +1077,13 @@ async function getProjectContext(projectId) {
 }
 
 // src/lib/ai/server.ts
-var openaiApiKey = process.env.OPENAI_API_KEY;
-if (!openaiApiKey) {
-  console.warn(
-    "OPENAI_API_KEY is not set. AI features may be limited. Using fallback model."
-  );
+var groqApiKey = process.env.GROQ_API_KEY;
+if (!groqApiKey) {
+  console.warn("GROQ_API_KEY is not set. Groq features will be unavailable.");
 }
-var openaiModel = _openai3.openai.call(void 0, openaiApiKey ? "gpt-4o" : "gpt-3.5-turbo");
+var activeModel = groqApiKey ? _groq3.groq.call(void 0, "llama3-8b-8192") : null;
 async function processChat(message, history = [], appContext, projectId) {
+  console.log("[processChat] Entered");
   try {
     if (projectId) {
       const projectContextData = await getProjectContext(projectId);
@@ -1084,25 +1092,55 @@ async function processChat(message, history = [], appContext, projectId) {
         history,
         projectContextData
       );
+      console.log(
+        "[processChat] Handled by projectId logic, response:",
+        responseText
+      );
       return responseText;
     }
     const systemPrompt = createSystemPrompt(appContext);
+    console.log(
+      "[processChat] Creating assistant chain with Groq preference..."
+    );
     const chain = createAssistantChain(systemPrompt);
     const formattedHistory = history.map((msg) => ({
       role: msg.role === "user" ? "human" : "assistant",
       content: msg.content
     }));
+    console.log("[processChat] Invoking Langchain chain...");
     const response = await chain.invoke({
       input: message,
       chat_history: formattedHistory
     });
+    console.log(
+      "[processChat] Langchain chain invocation successful. Response content:",
+      response.content
+    );
     return response.content;
   } catch (error) {
-    console.error("Error processing chat:", error);
-    return "Sorry, there was an error processing your request.";
+    console.error(
+      "[processChat] Error during Langchain chain invocation or projectId logic:",
+      error
+    );
+    console.log("[processChat] Re-throwing error from catch block.");
+    throw error;
   }
 }
 async function processChatStream(messageContent, history = [], appContext, projectContextInput) {
+  if (!activeModel) {
+    console.error("Groq API key not configured. Cannot process stream.");
+    return new Response(
+      JSON.stringify({
+        error: "AI service not configured",
+        details: "Groq API key is missing."
+      }),
+      {
+        status: 503,
+        // Service Unavailable
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  }
   let systemPrompt = "";
   if (projectContextInput) {
     try {
@@ -1124,7 +1162,8 @@ async function processChatStream(messageContent, history = [], appContext, proje
   ];
   try {
     const result = await _ai.streamText.call(void 0, {
-      model: openaiModel,
+      model: activeModel,
+      // Use activeModel (Groq)
       messages: formattedMessages,
       temperature: 0.7,
       maxTokens: 2e3

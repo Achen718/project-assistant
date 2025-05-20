@@ -66,7 +66,7 @@ declare function createSystemPrompt(appContext?: string): string;
  */
 declare function createSystemPromptWithContext(appContext?: string, projectContext?: ProjectContext): string;
 
-declare function createAssistantChain(systemPrompt: string, modelName?: string, apiKey?: string): RunnableSequence<any, _langchain_core_messages.AIMessageChunk>;
+declare function createAssistantChain(systemPrompt: string, modelName?: string, apiKey?: string, llmOptions?: Record<string, any>): RunnableSequence<any, _langchain_core_messages.AIMessageChunk>;
 
 /**
  * Context adapter that enhances AI responses with project context
