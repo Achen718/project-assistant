@@ -184,6 +184,8 @@ declare function createAIAssistant(options: AIAssistantClientOptions): {
     getUserProjects: () => Promise<StoredProjectContext[]>;
     getProjectContext: (contextId: string) => Promise<StoredProjectContext>;
     deleteProjectContext: (contextId: string) => Promise<void>;
+    createProjectContext: (projectContext: AnalyzerProjectContext) => Promise<StoredProjectContext>;
+    getProjectContextByProjectId: (projectId: string) => Promise<StoredProjectContext | null>;
 };
 
 /**

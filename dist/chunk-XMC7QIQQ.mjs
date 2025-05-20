@@ -1,27 +1,27 @@
-"use strict";Object.defineProperty(exports, "__esModule", {value: true});// src/components/chat/MessageItem.tsx
-var _jsxruntime = require('react/jsx-runtime');
+// src/components/chat/MessageItem.tsx
+import { jsx } from "react/jsx-runtime";
 var MessageItem = ({ message, isAI }) => {
-  return /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: `flex ${isAI ? "justify-start" : "justify-end"} mb-4`, children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
+  return /* @__PURE__ */ jsx("div", { className: `flex ${isAI ? "justify-start" : "justify-end"} mb-4`, children: /* @__PURE__ */ jsx(
     "div",
     {
       className: `max-w-[70%] rounded-lg p-3 ${isAI ? "bg-gray-100" : "bg-blue-500 text-white"}`,
-      children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "p", { className: "text-sm", children: message.content })
+      children: /* @__PURE__ */ jsx("p", { className: "text-sm", children: message.content })
     }
   ) });
 };
 var MessageItem_default = MessageItem;
 
 // src/components/chat/MessageList.tsx
-var _react = require('react');
-
+import { useRef, useEffect } from "react";
+import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 var MessageList = ({ messages, loading = false }) => {
-  const messagesEndRef = _react.useRef.call(void 0, null);
-  _react.useEffect.call(void 0, () => {
+  const messagesEndRef = useRef(null);
+  useEffect(() => {
     var _a;
     (_a = messagesEndRef.current) == null ? void 0 : _a.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-  return /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: "flex-1 overflow-y-auto p-4", children: [
-    messages.map((message) => /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
+  return /* @__PURE__ */ jsxs("div", { className: "flex-1 overflow-y-auto p-4", children: [
+    messages.map((message) => /* @__PURE__ */ jsx2(
       MessageItem_default,
       {
         message,
@@ -29,16 +29,16 @@ var MessageList = ({ messages, loading = false }) => {
       },
       message.id
     )),
-    loading && /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "flex justify-start mb-4", children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "bg-gray-100 rounded-lg p-3 max-w-[70%]", children: /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: "flex space-x-2", children: [
-      /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce" }),
-      /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
+    loading && /* @__PURE__ */ jsx2("div", { className: "flex justify-start mb-4", children: /* @__PURE__ */ jsx2("div", { className: "bg-gray-100 rounded-lg p-3 max-w-[70%]", children: /* @__PURE__ */ jsxs("div", { className: "flex space-x-2", children: [
+      /* @__PURE__ */ jsx2("div", { className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce" }),
+      /* @__PURE__ */ jsx2(
         "div",
         {
           className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce",
           style: { animationDelay: "0.2s" }
         }
       ),
-      /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
+      /* @__PURE__ */ jsx2(
         "div",
         {
           className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce",
@@ -46,20 +46,20 @@ var MessageList = ({ messages, loading = false }) => {
         }
       )
     ] }) }) }),
-    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { ref: messagesEndRef })
+    /* @__PURE__ */ jsx2("div", { ref: messagesEndRef })
   ] });
 };
 var MessageList_default = MessageList;
 
 // src/components/chat/ChatInput.tsx
-
-
+import { useState } from "react";
+import { jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
 var ChatInput = ({
   onSendMessage,
   disabled = false,
   placeholder
 }) => {
-  const [input, setInput] = _react.useState.call(void 0, "");
+  const [input, setInput] = useState("");
   const handleSubmit = (e) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
@@ -67,8 +67,8 @@ var ChatInput = ({
       setInput("");
     }
   };
-  return /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "form", { onSubmit: handleSubmit, className: "border-t p-4", children: /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: "flex space-x-2", children: [
-    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
+  return /* @__PURE__ */ jsx3("form", { onSubmit: handleSubmit, className: "border-t p-4", children: /* @__PURE__ */ jsxs2("div", { className: "flex space-x-2", children: [
+    /* @__PURE__ */ jsx3(
       "input",
       {
         type: "text",
@@ -80,7 +80,7 @@ var ChatInput = ({
         "data-testid": "chat-input"
       }
     ),
-    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
+    /* @__PURE__ */ jsx3(
       "button",
       {
         type: "submit",
@@ -94,9 +94,9 @@ var ChatInput = ({
 var ChatInput_default = ChatInput;
 
 // src/components/chat/AIChatComponent.tsx
-
-var _uuid = require('uuid');
-
+import { useState as useState2 } from "react";
+import { v4 as uuidv4 } from "uuid";
+import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
 var AIChatComponent = ({
   apiKey,
   apiEndpoint = "/api/assistant",
@@ -106,13 +106,13 @@ var AIChatComponent = ({
   onMessageSent,
   onResponseReceived
 }) => {
-  const [messages, setMessages] = _react.useState.call(void 0, initialMessages);
-  const [loading, setLoading] = _react.useState.call(void 0, false);
-  const [error, setError] = _react.useState.call(void 0, null);
+  const [messages, setMessages] = useState2(initialMessages);
+  const [loading, setLoading] = useState2(false);
+  const [error, setError] = useState2(null);
   const sendMessage = async (text) => {
     if (!text.trim()) return;
     const userMessage = {
-      id: _uuid.v4.call(void 0, ),
+      id: uuidv4(),
       role: "user",
       content: text,
       createdAt: /* @__PURE__ */ new Date()
@@ -141,7 +141,7 @@ var AIChatComponent = ({
       }
       const data = await response.json();
       const aiMessage = {
-        id: data.id || _uuid.v4.call(void 0, ),
+        id: data.id || uuidv4(),
         role: "assistant",
         content: data.response,
         createdAt: new Date(data.timestamp || Date.now())
@@ -157,10 +157,10 @@ var AIChatComponent = ({
       setLoading(false);
     }
   };
-  return /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: `flex flex-col h-full ${className}`, children: [
-    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, MessageList_default, { messages, loading }) }),
-    error && /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "p-2 text-red-500 text-sm text-center", children: error }),
-    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "mt-auto", children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
+  return /* @__PURE__ */ jsxs3("div", { className: `flex flex-col h-full ${className}`, children: [
+    /* @__PURE__ */ jsx4("div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsx4(MessageList_default, { messages, loading }) }),
+    error && /* @__PURE__ */ jsx4("div", { className: "p-2 text-red-500 text-sm text-center", children: error }),
+    /* @__PURE__ */ jsx4("div", { className: "mt-auto", children: /* @__PURE__ */ jsx4(
       ChatInput_default,
       {
         onSendMessage: sendMessage,
@@ -173,7 +173,7 @@ var AIChatComponent = ({
 var AIChatComponent_default = AIChatComponent;
 
 // src/client-lib/ai-assistant-client.ts
-
+import { v4 as uuidv42 } from "uuid";
 function createAIAssistant(options) {
   const apiUrl = options.apiUrl.endsWith("/") ? options.apiUrl.slice(0, -1) : options.apiUrl;
   const appContext = options.appContext;
@@ -202,12 +202,13 @@ function createAIAssistant(options) {
   return {
     // Send a message to the AI assistant
     sendMessage: async (message, history = [], contextId) => {
-      const response = await fetchWithAuth("/assistant", {
+      const response = await fetchWithAuth("/api/assistant", {
         method: "POST",
         body: JSON.stringify({
           message,
           history,
-          contextId
+          contextId,
+          streaming: false
         })
       });
       if (!response.ok) {
@@ -215,14 +216,14 @@ function createAIAssistant(options) {
       }
       const data = await response.json();
       return {
-        id: data.id || _uuid.v4.call(void 0, ),
+        id: data.id || uuidv42(),
         role: "assistant",
         content: data.response || data.content,
         createdAt: data.timestamp || Date.now()
       };
     },
     getSessions: async () => {
-      const response = await fetchWithAuth("/sessions");
+      const response = await fetchWithAuth("/api/sessions");
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
@@ -230,7 +231,7 @@ function createAIAssistant(options) {
       return data.sessions;
     },
     createSession: async (title, contextId) => {
-      const response = await fetchWithAuth("/sessions", {
+      const response = await fetchWithAuth("/api/sessions", {
         method: "POST",
         body: JSON.stringify({ title, contextId })
       });
@@ -240,7 +241,9 @@ function createAIAssistant(options) {
       return response.json();
     },
     getSessionMessages: async (sessionId) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}/messages`);
+      const response = await fetchWithAuth(
+        `/api/sessions/${sessionId}/messages`
+      );
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
@@ -248,17 +251,20 @@ function createAIAssistant(options) {
       return data.messages;
     },
     sendMessageToSession: async (sessionId, content) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ content })
-      });
+      const response = await fetchWithAuth(
+        `/api/sessions/${sessionId}/messages`,
+        {
+          method: "POST",
+          body: JSON.stringify({ content })
+        }
+      );
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
       return response.json();
     },
     updateSession: async (sessionId, data) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}`, {
+      const response = await fetchWithAuth(`/api/sessions/${sessionId}`, {
         method: "PATCH",
         body: JSON.stringify(data)
       });
@@ -267,7 +273,7 @@ function createAIAssistant(options) {
       }
     },
     deleteSession: async (sessionId) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}`, {
+      const response = await fetchWithAuth(`/api/sessions/${sessionId}`, {
         method: "DELETE"
       });
       if (!response.ok) {
@@ -283,7 +289,16 @@ function createAIAssistant(options) {
       if (appContext) {
         headers["x-app-context"] = appContext;
       }
-      const response = await fetch(`${apiUrl}/chat`, {
+      let tokenToUse = null;
+      if (getIdToken) {
+        tokenToUse = await getIdToken();
+      }
+      if (tokenToUse) {
+        headers["Authorization"] = `Bearer ${tokenToUse}`;
+      } else if (staticApiKey) {
+        headers["Authorization"] = `Bearer ${staticApiKey}`;
+      }
+      const response = await fetch(`${apiUrl}/api/assistant`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -312,7 +327,7 @@ function createAIAssistant(options) {
         reader.releaseLock();
       }
       return {
-        id: _uuid.v4.call(void 0, ),
+        id: uuidv42(),
         role: "assistant",
         content: fullText,
         createdAt: /* @__PURE__ */ new Date()
@@ -320,7 +335,7 @@ function createAIAssistant(options) {
     },
     // Project analysis
     analyzeProject: async (projectPath) => {
-      const response = await fetchWithAuth("/analyze", {
+      const response = await fetchWithAuth("/api/analyze", {
         method: "POST",
         body: JSON.stringify({ projectPath })
       });
@@ -335,7 +350,7 @@ function createAIAssistant(options) {
     },
     // Project context management
     getUserProjects: async () => {
-      const response = await fetchWithAuth("/projects");
+      const response = await fetchWithAuth("/api/projects");
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
@@ -343,27 +358,69 @@ function createAIAssistant(options) {
       return data.projects;
     },
     getProjectContext: async (contextId) => {
-      const response = await fetchWithAuth(`/projects/${contextId}`);
+      if (!contextId || typeof contextId !== "string" || contextId.trim() === "") {
+        console.error(
+          "Invalid contextId provided to getProjectContext:",
+          contextId
+        );
+        throw new Error("Invalid or missing project context ID.");
+      }
+      const response = await fetchWithAuth(`/api/projects/${contextId}`);
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
       return response.json();
     },
     deleteProjectContext: async (contextId) => {
-      const response = await fetchWithAuth(`/projects/${contextId}`, {
+      if (!contextId || typeof contextId !== "string" || contextId.trim() === "") {
+        console.error(
+          "Invalid contextId provided to deleteProjectContext:",
+          contextId
+        );
+        throw new Error("Invalid or missing project context ID for deletion.");
+      }
+      const response = await fetchWithAuth(`/api/projects/${contextId}`, {
         method: "DELETE"
       });
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
+    },
+    createProjectContext: async (projectContext) => {
+      const response = await fetchWithAuth("/api/context", {
+        method: "POST",
+        body: JSON.stringify(projectContext)
+      });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      return response.json();
+    },
+    // Method to get project context by project ID (which is the contextId in this client)
+    getProjectContextByProjectId: async (projectId) => {
+      if (!projectId || typeof projectId !== "string" || projectId.trim() === "") {
+        console.error(
+          "Invalid projectId provided to getProjectContextByProjectId:",
+          projectId
+        );
+        throw new Error("Invalid or missing project ID.");
+      }
+      const response = await fetchWithAuth(`/api/projects/${projectId}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`API error: ${response.status}`);
+      }
+      return response.json();
     }
   };
 }
 
-
-
-
-
-
-
-exports.MessageItem_default = MessageItem_default; exports.MessageList_default = MessageList_default; exports.ChatInput_default = ChatInput_default; exports.AIChatComponent_default = AIChatComponent_default; exports.createAIAssistant = createAIAssistant;
+export {
+  MessageItem_default,
+  MessageList_default,
+  ChatInput_default,
+  AIChatComponent_default,
+  createAIAssistant
+};
