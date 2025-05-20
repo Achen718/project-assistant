@@ -77,70 +77,72 @@ async function getRAGContext(
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
-    const userId = await authenticateRequest(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // const userId = await authenticateRequest(request); // Temporarily disable auth
+    // if (!userId) {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
+    console.log('Assistant API /api/assistant POST handler was hit!');
+    return NextResponse.json({ message: 'API endpoint reached successfully' });
 
-    const { message, history, streaming, projectId } = await request.json();
+    // const { message, history, streaming, projectId } = await request.json();
 
-    if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
-    }
+    // if (!message) {
+    //   return NextResponse.json(
+    //     { error: 'Message is required' },
+    //     { status: 400 }
+    //   );
+    // }
 
-    const appContext = request.headers.get('x-app-context') || 'assistant';
-    const currentHistory = (history || []) as Message[];
+    // const appContext = request.headers.get('x-app-context') || 'assistant';
+    // const currentHistory = (history || []) as Message[];
 
-    let augmentedMessage = message;
-    if (process.env.RAG_ENABLED === 'true') {
-      const ragContext = await getRAGContext(message, projectId);
-      if (ragContext) {
-        augmentedMessage = `${ragContext}\n\nUser Question: ${message}`;
-      }
-    }
+    // let augmentedMessage = message;
+    // if (process.env.RAG_ENABLED === 'true') {
+    //   const ragContext = await getRAGContext(message, projectId);
+    //   if (ragContext) {
+    //     augmentedMessage = `${ragContext}\n\nUser Question: ${message}`;
+    //   }
+    // }
 
-    if (streaming) {
-      let projectContextForStream: ProjectContext | undefined = undefined;
-      if (projectId) {
-        try {
-          const fetchedContext = await getProjectContext(projectId);
-          projectContextForStream =
-            fetchedContext === null ? undefined : fetchedContext;
-        } catch (contextError) {
-          console.error(
-            `Failed to fetch project context ID ${projectId} for streaming:`,
-            contextError
-          );
-        }
-      }
+    // if (streaming) {
+    //   let projectContextForStream: ProjectContext | undefined = undefined;
+    //   if (projectId) {
+    //     try {
+    //       const fetchedContext = await getProjectContext(projectId);
+    //       projectContextForStream =
+    //         fetchedContext === null ? undefined : fetchedContext;
+    //     } catch (contextError) {
+    //       console.error(
+    //         `Failed to fetch project context ID ${projectId} for streaming:`,
+    //         contextError
+    //       );
+    //     }
+    //   }
 
-      const response = await processChatStream(
-        augmentedMessage,
-        currentHistory,
-        appContext,
-        projectContextForStream
-      );
-      return response;
-    } else {
-      const aiResponseContent = await processChat(
-        augmentedMessage,
-        currentHistory,
-        appContext,
-        projectId
-      );
+    //   const response = await processChatStream(
+    //     augmentedMessage,
+    //     currentHistory,
+    //     appContext,
+    //     projectContextForStream
+    //   );
+    //   return response;
+    // } else {
+    //   const aiResponseContent = await processChat(
+    //     augmentedMessage,
+    //     currentHistory,
+    //     appContext,
+    //     projectId
+    //   );
 
-      return NextResponse.json({
-        id: crypto.randomUUID(),
-        content: aiResponseContent,
-        role: 'assistant',
-        timestamp: Date.now(),
-      });
-    }
+    //   return NextResponse.json({
+    //     id: crypto.randomUUID(),
+    //     content: aiResponseContent,
+    //     role: 'assistant',
+    //     timestamp: Date.now(),
+    //   });
+    // }
   } catch (error: unknown) {
-    console.error('Assistant API error:', error);
+    console.error('Simple Assistant API error:', error);
     const errorMessage =
       error instanceof Error ? error.message : 'Failed to process request';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
