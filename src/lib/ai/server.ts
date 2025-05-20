@@ -1,13 +1,19 @@
 import { createAssistantChain } from './chains';
-import { streamText } from 'ai';
+import { streamText, type Message, type StreamTextResult } from 'ai';
 import { openai } from '@ai-sdk/openai';
 // import { groq } from '@ai-sdk/groq'; // Removed unused import
-import type { Message } from 'ai';
+import type { ProjectContext } from '@/lib/context/types';
 import { generateContextAwareResponse } from './context-adapter';
 import { getProjectContext } from '@/lib/firebase/context-service';
-import { ProjectContext } from '@/lib/context/types';
 
-const openaiModel = openai('gpt-4o');
+const openaiApiKey = process.env.OPENAI_API_KEY;
+if (!openaiApiKey) {
+  console.warn(
+    'OPENAI_API_KEY is not set. AI features may be limited. Using fallback model.'
+  );
+}
+// Use GPT-3.5-turbo if key is missing, assuming it's more permissive or for testing
+const openaiModel = openai(openaiApiKey ? 'gpt-4o' : 'gpt-3.5-turbo');
 // To use Groq (ensure GROQ_API_KEY is in .env.local):
 // import { groq } from '@ai-sdk/groq';
 // const activeModel = groq('llama3-8b-8192');
@@ -18,18 +24,16 @@ export async function processChat(
   history: Message[] = [],
   appContext?: string,
   projectId?: string
-) {
+): Promise<string> {
   try {
     if (projectId) {
-      const projectContext = await getProjectContext(projectId);
-      // TODO: Review if generateContextAwareResponse needs to be aware of pre-augmented message
-      // or if it should receive raw message and RAG context separately.
-      const response = await generateContextAwareResponse(
-        message, // This is potentially augmentedMessage from the API route
+      const projectContextData = await getProjectContext(projectId);
+      const responseText = await generateContextAwareResponse(
+        message,
         history,
-        projectContext
+        projectContextData
       );
-      return response;
+      return responseText;
     }
 
     const systemPrompt = createSystemPrompt(appContext);
@@ -41,11 +45,11 @@ export async function processChat(
     }));
 
     const response = await chain.invoke({
-      input: message, // This is potentially augmentedMessage from the API route
+      input: message,
       chat_history: formattedHistory,
     });
 
-    return response.content;
+    return response.content as string;
   } catch (error) {
     console.error('Error processing chat:', error);
     return 'Sorry, there was an error processing your request.';
@@ -53,15 +57,13 @@ export async function processChat(
 }
 
 export async function processChatStream(
-  message: string, // This is potentially augmentedMessage from the API route
+  messageContent: string,
   history: Message[] = [],
   appContext?: string,
-  projectContextInput?: ProjectContext // Renamed to avoid conflict with context fetched via projectId if that pattern changes
-) {
+  projectContextInput?: ProjectContext
+): Promise<Response> {
   let systemPrompt = '';
 
-  // Note: If projectContextInput is provided, it's the general context.
-  // The RAG context is already prepended to the 'message' variable by the API route.
   if (projectContextInput) {
     try {
       systemPrompt = createSystemPromptWithContext(
@@ -69,10 +71,7 @@ export async function processChatStream(
         projectContextInput
       );
     } catch (error) {
-      console.error(
-        'Error creating system prompt with project context:',
-        error
-      );
+      console.error('Error creating system prompt with context:', error);
       systemPrompt = createSystemPrompt(appContext);
     }
   } else {
@@ -82,21 +81,53 @@ export async function processChatStream(
   const formattedMessages: Message[] = [
     { id: crypto.randomUUID(), role: 'system', content: systemPrompt },
     ...history,
-    { id: crypto.randomUUID(), role: 'user', content: message }, // message here already contains RAG + original query
+    { id: crypto.randomUUID(), role: 'user', content: messageContent },
   ];
 
   try {
-    return streamText({
-      model: openaiModel, // or activeModel if using Groq/other
+    const result: StreamTextResult<never, string> = await streamText({
+      model: openaiModel,
       messages: formattedMessages,
       temperature: 0.7,
       maxTokens: 2000,
     });
-  } catch (error) {
+
+    // Linter consistently rejects .toResponse(). Using fallback to textStream.
+    if (result.textStream && result.textStream instanceof ReadableStream) {
+      return new Response(result.textStream, {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }, // Standard headers for text stream
+      });
+    } else {
+      console.error(
+        'AI streaming error: textStream not available or not a ReadableStream on streamText result.',
+        result
+      );
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to process AI stream request',
+          details: 'textStream not available or invalid',
+        }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  } catch (error: unknown) {
     console.error('AI streaming error:', error);
+    let errorMessage = 'Unknown streaming error';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return new Response(
-      JSON.stringify({ error: 'Failed to process AI request' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: 'Failed to process AI stream request',
+        details: errorMessage,
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
     );
   }
 }
@@ -118,11 +149,10 @@ export function createSystemPrompt(appContext?: string): string {
  */
 export function createSystemPromptWithContext(
   appContext?: string,
-  projectContext?: ProjectContext // This is the broader project context, not the RAG snippets
+  projectContext?: ProjectContext
 ): string {
-  let prompt = createSystemPrompt(appContext); // Gets the base prompt which now includes RAG instruction
+  let prompt = createSystemPrompt(appContext);
 
-  // Further instructions on how to use general project details in conjunction with RAG context.
   prompt += `\nIn addition to any retrieved codebase snippets, consider the following general project details. Synthesize all available information for the most comprehensive answer.`;
 
   if (!projectContext) {
