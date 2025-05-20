@@ -1068,18 +1068,23 @@ async function getProjectContext(projectId) {
 }
 
 // src/lib/ai/server.ts
-var openaiModel = _openai3.openai.call(void 0, "gpt-4o");
+var openaiApiKey = process.env.OPENAI_API_KEY;
+if (!openaiApiKey) {
+  console.warn(
+    "OPENAI_API_KEY is not set. AI features may be limited. Using fallback model."
+  );
+}
+var openaiModel = _openai3.openai.call(void 0, openaiApiKey ? "gpt-4o" : "gpt-3.5-turbo");
 async function processChat(message, history = [], appContext, projectId) {
   try {
     if (projectId) {
-      const projectContext = await getProjectContext(projectId);
-      const response2 = await generateContextAwareResponse(
+      const projectContextData = await getProjectContext(projectId);
+      const responseText = await generateContextAwareResponse(
         message,
-        // This is potentially augmentedMessage from the API route
         history,
-        projectContext
+        projectContextData
       );
-      return response2;
+      return responseText;
     }
     const systemPrompt = createSystemPrompt(appContext);
     const chain = createAssistantChain(systemPrompt);
@@ -1089,7 +1094,6 @@ async function processChat(message, history = [], appContext, projectId) {
     }));
     const response = await chain.invoke({
       input: message,
-      // This is potentially augmentedMessage from the API route
       chat_history: formattedHistory
     });
     return response.content;
@@ -1098,7 +1102,7 @@ async function processChat(message, history = [], appContext, projectId) {
     return "Sorry, there was an error processing your request.";
   }
 }
-async function processChatStream(message, history = [], appContext, projectContextInput) {
+async function processChatStream(messageContent, history = [], appContext, projectContextInput) {
   let systemPrompt = "";
   if (projectContextInput) {
     try {
@@ -1107,10 +1111,7 @@ async function processChatStream(message, history = [], appContext, projectConte
         projectContextInput
       );
     } catch (error) {
-      console.error(
-        "Error creating system prompt with project context:",
-        error
-      );
+      console.error("Error creating system prompt with context:", error);
       systemPrompt = createSystemPrompt(appContext);
     }
   } else {
@@ -1119,22 +1120,51 @@ async function processChatStream(message, history = [], appContext, projectConte
   const formattedMessages = [
     { id: crypto.randomUUID(), role: "system", content: systemPrompt },
     ...history,
-    { id: crypto.randomUUID(), role: "user", content: message }
-    // message here already contains RAG + original query
+    { id: crypto.randomUUID(), role: "user", content: messageContent }
   ];
   try {
-    return _ai.streamText.call(void 0, {
+    const result = await _ai.streamText.call(void 0, {
       model: openaiModel,
-      // or activeModel if using Groq/other
       messages: formattedMessages,
       temperature: 0.7,
       maxTokens: 2e3
     });
+    if (result.textStream && result.textStream instanceof ReadableStream) {
+      return new Response(result.textStream, {
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+        // Standard headers for text stream
+      });
+    } else {
+      console.error(
+        "AI streaming error: textStream not available or not a ReadableStream on streamText result.",
+        result
+      );
+      return new Response(
+        JSON.stringify({
+          error: "Failed to process AI stream request",
+          details: "textStream not available or invalid"
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
   } catch (error) {
     console.error("AI streaming error:", error);
+    let errorMessage = "Unknown streaming error";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     return new Response(
-      JSON.stringify({ error: "Failed to process AI request" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: "Failed to process AI stream request",
+        details: errorMessage
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      }
     );
   }
 }
