@@ -78,7 +78,7 @@ const AIChatComponent = ({
       const aiMessage: Message = {
         id: data.id || uuidv4(),
         role: 'assistant',
-        content: data.response,
+        content: data.content,
         createdAt: new Date(data.timestamp || Date.now()),
       };
 
