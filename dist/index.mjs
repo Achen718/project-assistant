@@ -4,7 +4,7 @@ import {
   MessageItem_default,
   MessageList_default,
   createAIAssistant
-} from "./chunk-XMC7QIQQ.mjs";
+} from "./chunk-DXTSMCRU.mjs";
 
 // src/lib/analyzer/index.ts
 import fs2 from "fs";

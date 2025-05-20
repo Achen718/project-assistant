@@ -4,11 +4,11 @@
 
 
 
-var _chunkZPODX2S6js = require('./chunk-ZPODX2S6.js');
+var _chunk6IKHWCGDjs = require('./chunk-6IKHWCGD.js');
 
 
 
 
 
 
-exports.AIChatComponent = _chunkZPODX2S6js.AIChatComponent_default; exports.ChatInput = _chunkZPODX2S6js.ChatInput_default; exports.MessageItem = _chunkZPODX2S6js.MessageItem_default; exports.MessageList = _chunkZPODX2S6js.MessageList_default; exports.createAIAssistant = _chunkZPODX2S6js.createAIAssistant;
+exports.AIChatComponent = _chunk6IKHWCGDjs.AIChatComponent_default; exports.ChatInput = _chunk6IKHWCGDjs.ChatInput_default; exports.MessageItem = _chunk6IKHWCGDjs.MessageItem_default; exports.MessageList = _chunk6IKHWCGDjs.MessageList_default; exports.createAIAssistant = _chunk6IKHWCGDjs.createAIAssistant;

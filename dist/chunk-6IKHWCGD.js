@@ -1,27 +1,27 @@
-// src/components/chat/MessageItem.tsx
-import { jsx } from "react/jsx-runtime";
+"use strict";Object.defineProperty(exports, "__esModule", {value: true});// src/components/chat/MessageItem.tsx
+var _jsxruntime = require('react/jsx-runtime');
 var MessageItem = ({ message, isAI }) => {
-  return /* @__PURE__ */ jsx("div", { className: `flex ${isAI ? "justify-start" : "justify-end"} mb-4`, children: /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: `flex ${isAI ? "justify-start" : "justify-end"} mb-4`, children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
     "div",
     {
       className: `max-w-[70%] rounded-lg p-3 ${isAI ? "bg-gray-100" : "bg-blue-500 text-white"}`,
-      children: /* @__PURE__ */ jsx("p", { className: "text-sm", children: message.content })
+      children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "p", { className: "text-sm", children: message.content })
     }
   ) });
 };
 var MessageItem_default = MessageItem;
 
 // src/components/chat/MessageList.tsx
-import { useRef, useEffect } from "react";
-import { jsx as jsx2, jsxs } from "react/jsx-runtime";
+var _react = require('react');
+
 var MessageList = ({ messages, loading = false }) => {
-  const messagesEndRef = useRef(null);
-  useEffect(() => {
+  const messagesEndRef = _react.useRef.call(void 0, null);
+  _react.useEffect.call(void 0, () => {
     var _a;
     (_a = messagesEndRef.current) == null ? void 0 : _a.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-  return /* @__PURE__ */ jsxs("div", { className: "flex-1 overflow-y-auto p-4", children: [
-    messages.map((message) => /* @__PURE__ */ jsx2(
+  return /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: "flex-1 overflow-y-auto p-4", children: [
+    messages.map((message) => /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
       MessageItem_default,
       {
         message,
@@ -29,16 +29,16 @@ var MessageList = ({ messages, loading = false }) => {
       },
       message.id
     )),
-    loading && /* @__PURE__ */ jsx2("div", { className: "flex justify-start mb-4", children: /* @__PURE__ */ jsx2("div", { className: "bg-gray-100 rounded-lg p-3 max-w-[70%]", children: /* @__PURE__ */ jsxs("div", { className: "flex space-x-2", children: [
-      /* @__PURE__ */ jsx2("div", { className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce" }),
-      /* @__PURE__ */ jsx2(
+    loading && /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "flex justify-start mb-4", children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "bg-gray-100 rounded-lg p-3 max-w-[70%]", children: /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: "flex space-x-2", children: [
+      /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce" }),
+      /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
         "div",
         {
           className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce",
           style: { animationDelay: "0.2s" }
         }
       ),
-      /* @__PURE__ */ jsx2(
+      /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
         "div",
         {
           className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce",
@@ -46,20 +46,20 @@ var MessageList = ({ messages, loading = false }) => {
         }
       )
     ] }) }) }),
-    /* @__PURE__ */ jsx2("div", { ref: messagesEndRef })
+    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { ref: messagesEndRef })
   ] });
 };
 var MessageList_default = MessageList;
 
 // src/components/chat/ChatInput.tsx
-import { useState } from "react";
-import { jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
+
+
 var ChatInput = ({
   onSendMessage,
   disabled = false,
   placeholder
 }) => {
-  const [input, setInput] = useState("");
+  const [input, setInput] = _react.useState.call(void 0, "");
   const handleSubmit = (e) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
@@ -67,8 +67,8 @@ var ChatInput = ({
       setInput("");
     }
   };
-  return /* @__PURE__ */ jsx3("form", { onSubmit: handleSubmit, className: "border-t p-4", children: /* @__PURE__ */ jsxs2("div", { className: "flex space-x-2", children: [
-    /* @__PURE__ */ jsx3(
+  return /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "form", { onSubmit: handleSubmit, className: "border-t p-4", children: /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: "flex space-x-2", children: [
+    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
       "input",
       {
         type: "text",
@@ -80,7 +80,7 @@ var ChatInput = ({
         "data-testid": "chat-input"
       }
     ),
-    /* @__PURE__ */ jsx3(
+    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
       "button",
       {
         type: "submit",
@@ -94,9 +94,9 @@ var ChatInput = ({
 var ChatInput_default = ChatInput;
 
 // src/components/chat/AIChatComponent.tsx
-import { useState as useState2 } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
+
+var _uuid = require('uuid');
+
 var AIChatComponent = ({
   apiKey,
   apiEndpoint = "/api/assistant",
@@ -106,13 +106,13 @@ var AIChatComponent = ({
   onMessageSent,
   onResponseReceived
 }) => {
-  const [messages, setMessages] = useState2(initialMessages);
-  const [loading, setLoading] = useState2(false);
-  const [error, setError] = useState2(null);
+  const [messages, setMessages] = _react.useState.call(void 0, initialMessages);
+  const [loading, setLoading] = _react.useState.call(void 0, false);
+  const [error, setError] = _react.useState.call(void 0, null);
   const sendMessage = async (text) => {
     if (!text.trim()) return;
     const userMessage = {
-      id: uuidv4(),
+      id: _uuid.v4.call(void 0, ),
       role: "user",
       content: text,
       createdAt: /* @__PURE__ */ new Date()
@@ -141,9 +141,9 @@ var AIChatComponent = ({
       }
       const data = await response.json();
       const aiMessage = {
-        id: data.id || uuidv4(),
+        id: data.id || _uuid.v4.call(void 0, ),
         role: "assistant",
-        content: data.response,
+        content: data.content,
         createdAt: new Date(data.timestamp || Date.now())
       };
       setMessages((prev) => [...prev, aiMessage]);
@@ -157,10 +157,10 @@ var AIChatComponent = ({
       setLoading(false);
     }
   };
-  return /* @__PURE__ */ jsxs3("div", { className: `flex flex-col h-full ${className}`, children: [
-    /* @__PURE__ */ jsx4("div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsx4(MessageList_default, { messages, loading }) }),
-    error && /* @__PURE__ */ jsx4("div", { className: "p-2 text-red-500 text-sm text-center", children: error }),
-    /* @__PURE__ */ jsx4("div", { className: "mt-auto", children: /* @__PURE__ */ jsx4(
+  return /* @__PURE__ */ _jsxruntime.jsxs.call(void 0, "div", { className: `flex flex-col h-full ${className}`, children: [
+    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, MessageList_default, { messages, loading }) }),
+    error && /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "p-2 text-red-500 text-sm text-center", children: error }),
+    /* @__PURE__ */ _jsxruntime.jsx.call(void 0, "div", { className: "mt-auto", children: /* @__PURE__ */ _jsxruntime.jsx.call(void 0, 
       ChatInput_default,
       {
         onSendMessage: sendMessage,
@@ -173,7 +173,7 @@ var AIChatComponent = ({
 var AIChatComponent_default = AIChatComponent;
 
 // src/client-lib/ai-assistant-client.ts
-import { v4 as uuidv42 } from "uuid";
+
 function createAIAssistant(options) {
   const apiUrl = options.apiUrl.endsWith("/") ? options.apiUrl.slice(0, -1) : options.apiUrl;
   const appContext = options.appContext;
@@ -216,7 +216,7 @@ function createAIAssistant(options) {
       }
       const data = await response.json();
       return {
-        id: data.id || uuidv42(),
+        id: data.id || _uuid.v4.call(void 0, ),
         role: "assistant",
         content: data.response || data.content,
         createdAt: data.timestamp || Date.now()
@@ -327,7 +327,7 @@ function createAIAssistant(options) {
         reader.releaseLock();
       }
       return {
-        id: uuidv42(),
+        id: _uuid.v4.call(void 0, ),
         role: "assistant",
         content: fullText,
         createdAt: /* @__PURE__ */ new Date()
@@ -417,10 +417,10 @@ function createAIAssistant(options) {
   };
 }
 
-export {
-  MessageItem_default,
-  MessageList_default,
-  ChatInput_default,
-  AIChatComponent_default,
-  createAIAssistant
-};
+
+
+
+
+
+
+exports.MessageItem_default = MessageItem_default; exports.MessageList_default = MessageList_default; exports.ChatInput_default = ChatInput_default; exports.AIChatComponent_default = AIChatComponent_default; exports.createAIAssistant = createAIAssistant;

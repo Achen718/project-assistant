@@ -4,7 +4,7 @@
 
 
 
-var _chunkZPODX2S6js = require('./chunk-ZPODX2S6.js');
+var _chunk6IKHWCGDjs = require('./chunk-6IKHWCGD.js');
 
 // src/lib/analyzer/index.ts
 var _fs = require('fs'); var _fs2 = _interopRequireDefault(_fs);
@@ -1284,4 +1284,4 @@ When answering questions about this project:
 
 
 
-exports.AIChatComponent = _chunkZPODX2S6js.AIChatComponent_default; exports.ChatInput = _chunkZPODX2S6js.ChatInput_default; exports.MessageItem = _chunkZPODX2S6js.MessageItem_default; exports.MessageList = _chunkZPODX2S6js.MessageList_default; exports.analyzeCodeQuality = analyzeCodeQuality; exports.analyzeFileStructure = analyzeFileStructure; exports.analyzePackageJson = analyzePackageJson; exports.analyzeProject = analyzeProject; exports.createAIAssistant = _chunkZPODX2S6js.createAIAssistant; exports.createAssistantChain = createAssistantChain; exports.createSystemPrompt = createSystemPrompt; exports.createSystemPromptWithContext = createSystemPromptWithContext; exports.deleteProjectContext = deleteProjectContext; exports.generateContextAwareResponse = generateContextAwareResponse; exports.getLatestProjectContext = getLatestProjectContext; exports.getProjectContextById = getProjectContextById; exports.getUserProjects = getUserProjects; exports.processChat = processChat; exports.processChatStream = processChatStream; exports.storeProjectContext = storeProjectContext;
+exports.AIChatComponent = _chunk6IKHWCGDjs.AIChatComponent_default; exports.ChatInput = _chunk6IKHWCGDjs.ChatInput_default; exports.MessageItem = _chunk6IKHWCGDjs.MessageItem_default; exports.MessageList = _chunk6IKHWCGDjs.MessageList_default; exports.analyzeCodeQuality = analyzeCodeQuality; exports.analyzeFileStructure = analyzeFileStructure; exports.analyzePackageJson = analyzePackageJson; exports.analyzeProject = analyzeProject; exports.createAIAssistant = _chunk6IKHWCGDjs.createAIAssistant; exports.createAssistantChain = createAssistantChain; exports.createSystemPrompt = createSystemPrompt; exports.createSystemPromptWithContext = createSystemPromptWithContext; exports.deleteProjectContext = deleteProjectContext; exports.generateContextAwareResponse = generateContextAwareResponse; exports.getLatestProjectContext = getLatestProjectContext; exports.getProjectContextById = getProjectContextById; exports.getUserProjects = getUserProjects; exports.processChat = processChat; exports.processChatStream = processChatStream; exports.storeProjectContext = storeProjectContext;

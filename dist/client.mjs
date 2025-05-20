@@ -4,7 +4,7 @@ import {
   MessageItem_default,
   MessageList_default,
   createAIAssistant
-} from "./chunk-XMC7QIQQ.mjs";
+} from "./chunk-DXTSMCRU.mjs";
 export {
   AIChatComponent_default as AIChatComponent,
   ChatInput_default as ChatInput,
