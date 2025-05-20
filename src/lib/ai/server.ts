@@ -1,23 +1,35 @@
 import { createAssistantChain } from './chains';
 import { streamText, type Message, type StreamTextResult } from 'ai';
-import { openai } from '@ai-sdk/openai';
-// import { groq } from '@ai-sdk/groq'; // Removed unused import
+// import { openai } from '@ai-sdk/openai'; // Comment out OpenAI for now
+import { groq } from '@ai-sdk/groq'; // Uncomment Groq
 import type { ProjectContext } from '@/lib/context/types';
 import { generateContextAwareResponse } from './context-adapter';
 import { getProjectContext } from '@/lib/firebase/context-service';
 
-const openaiApiKey = process.env.OPENAI_API_KEY;
-if (!openaiApiKey) {
-  console.warn(
-    'OPENAI_API_KEY is not set. AI features may be limited. Using fallback model.'
-  );
+// console.log(
+//   'SERVER.TS: OPENAI_API_KEY from env:',
+//   process.env.OPENAI_API_KEY
+//     ? process.env.OPENAI_API_KEY.substring(0, 5) + '...'
+//     : 'NOT SET'
+// ); // Log a snippet or "NOT SET"
+
+// const openaiApiKey = process.env.OPENAI_API_KEY;
+// if (!openaiApiKey) {
+//   console.warn(
+//     'OPENAI_API_KEY is not set. AI features may be limited. Using fallback model.'
+//   );
+// }
+// // Use GPT-3.5-turbo if key is missing, assuming it's more permissive or for testing
+// // const openaiModel = openai(openaiApiKey ? 'gpt-4o' : 'gpt-3.5-turbo');
+// const openaiModel = openai(openaiApiKey ? 'gpt-3.5-turbo' : 'gpt-3.5-turbo'); // Forcing 3.5-turbo for testing
+
+const groqApiKey = process.env.GROQ_API_KEY;
+if (!groqApiKey) {
+  console.warn('GROQ_API_KEY is not set. Groq features will be unavailable.');
 }
-// Use GPT-3.5-turbo if key is missing, assuming it's more permissive or for testing
-const openaiModel = openai(openaiApiKey ? 'gpt-4o' : 'gpt-3.5-turbo');
-// To use Groq (ensure GROQ_API_KEY is in .env.local):
-// import { groq } from '@ai-sdk/groq';
-// const activeModel = groq('llama3-8b-8192');
-// And use activeModel below instead of openaiModel
+// Default to llama3-8b-8192 or another model you prefer from Groq
+// Ensure the model name is valid for the Groq provider
+const activeModel = groqApiKey ? groq('llama3-8b-8192') : null;
 
 export async function processChat(
   message: string,
@@ -25,6 +37,7 @@ export async function processChat(
   appContext?: string,
   projectId?: string
 ): Promise<string> {
+  console.log('[processChat] Entered');
   try {
     if (projectId) {
       const projectContextData = await getProjectContext(projectId);
@@ -33,10 +46,17 @@ export async function processChat(
         history,
         projectContextData
       );
+      console.log(
+        '[processChat] Handled by projectId logic, response:',
+        responseText
+      );
       return responseText;
     }
 
     const systemPrompt = createSystemPrompt(appContext);
+    console.log(
+      '[processChat] Creating assistant chain with Groq preference...'
+    );
     const chain = createAssistantChain(systemPrompt);
 
     const formattedHistory = history.map((msg) => ({
@@ -44,15 +64,24 @@ export async function processChat(
       content: msg.content,
     }));
 
+    console.log('[processChat] Invoking Langchain chain...');
     const response = await chain.invoke({
       input: message,
       chat_history: formattedHistory,
     });
-
+    console.log(
+      '[processChat] Langchain chain invocation successful. Response content:',
+      response.content
+    );
     return response.content as string;
   } catch (error) {
-    console.error('Error processing chat:', error);
-    return 'Sorry, there was an error processing your request.';
+    console.error(
+      '[processChat] Error during Langchain chain invocation or projectId logic:',
+      error
+    );
+    console.log('[processChat] Re-throwing error from catch block.');
+    throw error; // Re-throw the error to be caught by the API route handler
+    // return 'Sorry, there was an error processing your request.';
   }
 }
 
@@ -62,6 +91,20 @@ export async function processChatStream(
   appContext?: string,
   projectContextInput?: ProjectContext
 ): Promise<Response> {
+  if (!activeModel) {
+    console.error('Groq API key not configured. Cannot process stream.');
+    return new Response(
+      JSON.stringify({
+        error: 'AI service not configured',
+        details: 'Groq API key is missing.',
+      }),
+      {
+        status: 503, // Service Unavailable
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   let systemPrompt = '';
 
   if (projectContextInput) {
@@ -86,7 +129,7 @@ export async function processChatStream(
 
   try {
     const result: StreamTextResult<never, string> = await streamText({
-      model: openaiModel,
+      model: activeModel, // Use activeModel (Groq)
       messages: formattedMessages,
       temperature: 0.7,
       maxTokens: 2000,

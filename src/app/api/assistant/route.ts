@@ -159,6 +159,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         }
       }
 
+      // The processChatStream function in server.ts already checks if Groq (activeModel) is configured
+      // and returns a 503 if not. So, no explicit activeModel check needed here.
       const response = await processChatStream(
         augmentedMessage,
         currentHistory,
@@ -167,24 +169,46 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
       return response;
     } else {
-      const aiResponseContent = await processChat(
-        augmentedMessage,
-        currentHistory,
-        appContext,
-        projectId // Pass projectId here, processChat will fetch context if needed
-      );
-
-      return NextResponse.json({
-        id: crypto.randomUUID(),
-        content: aiResponseContent,
-        role: 'assistant',
-        timestamp: Date.now(),
-      });
+      console.log('[API Route] Calling processChat for non-streaming.');
+      try {
+        const aiResponseContent = await processChat(
+          augmentedMessage,
+          currentHistory,
+          appContext,
+          projectId
+        );
+        console.log(
+          '[API Route] processChat returned successfully with content:',
+          aiResponseContent
+        );
+        return NextResponse.json({
+          id: crypto.randomUUID(),
+          content: aiResponseContent,
+          role: 'assistant',
+          timestamp: Date.now(),
+        });
+      } catch (processChatError) {
+        console.error(
+          '[API Route] Error explicitly caught from processChat:',
+          processChatError
+        );
+        const errorMessage =
+          processChatError instanceof Error
+            ? processChatError.message
+            : 'Failed to process request in processChat';
+        return NextResponse.json(
+          { error: errorMessage, source: 'processChat_catch' },
+          { status: 500 }
+        );
+      }
     }
   } catch (error: unknown) {
-    console.error('Assistant API error:', error);
+    console.error('[API Route] Outer catch block error:', error);
     const errorMessage =
-      error instanceof Error ? error.message : 'Failed to process request';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+      error instanceof Error ? error.message : 'General API processing failed';
+    return NextResponse.json(
+      { error: errorMessage, source: 'outer_catch' },
+      { status: 500 }
+    );
   }
 }
