@@ -5,8 +5,9 @@ import { StoredProjectContext } from '@/lib/analyzer/context-storage';
 
 export interface AIAssistantClientOptions {
   apiUrl: string;
-  apiKey: string;
   appContext?: string;
+  getIdToken?: () => Promise<string | null>; // For Firebase ID tokens
+  staticApiKey?: string; // For fallback or non-user-specific auth
 }
 
 export function createAIAssistant(options: AIAssistantClientOptions) {
@@ -14,20 +15,36 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
   const apiUrl = options.apiUrl.endsWith('/')
     ? options.apiUrl.slice(0, -1)
     : options.apiUrl;
-  const apiKey = options.apiKey;
   const appContext = options.appContext;
+  const getIdToken = options.getIdToken;
+  const staticApiKey = options.staticApiKey;
 
   // Private utility function
-  const fetchWithAuth = async (endpoint: string, options?: RequestInit) => {
+  const fetchWithAuth = async (
+    endpoint: string,
+    requestOptions?: RequestInit
+  ) => {
     const url = `${apiUrl}${endpoint}`;
-    const headers = {
-      Authorization: `Bearer ${apiKey}`,
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(options?.headers || {}),
+      ...((requestOptions?.headers as Record<string, string>) || {}),
     };
 
+    let tokenToUse: string | null = null;
+    if (getIdToken) {
+      tokenToUse = await getIdToken();
+    }
+
+    if (tokenToUse) {
+      headers['Authorization'] = `Bearer ${tokenToUse}`;
+    } else if (staticApiKey) {
+      headers['Authorization'] = `Bearer ${staticApiKey}`;
+    }
+    // If no token and no staticApiKey, the request will be made without an Authorization header.
+    // Server should handle this (e.g., reject if auth is required).
+
     return fetch(url, {
-      ...options,
+      ...requestOptions,
       headers,
     });
   };
@@ -152,7 +169,6 @@ export function createAIAssistant(options: AIAssistantClientOptions) {
       contextId?: string
     ): Promise<Message> => {
       const headers: HeadersInit = {
-        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       };
 

@@ -11,7 +11,14 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
-    }
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.mjs",
+      "require": "./dist/client.js",
+      "default": "./dist/client.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
@@ -20,7 +27,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "build-lib": "tsup package/index.ts --format cjs,esm --dts --tsconfig tsconfig.build.json --external react,react-dom",
+    "build-lib": "tsup package/index.ts package/client.ts --format cjs,esm --dts --tsconfig tsconfig.build.json --external react,react-dom --splitting --clean",
     "prepublishOnly": "npm run build-lib",
     "lint": "next lint",
     "type-check": "tsc --noEmit",

@@ -1,420 +1,15 @@
-"use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+"use strict";Object.defineProperty(exports, "__esModule", {value: true}); function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-// package/index.ts
-var index_exports = {};
-__export(index_exports, {
-  AIChatComponent: () => AIChatComponent_default,
-  ChatInput: () => ChatInput_default,
-  MessageItem: () => MessageItem_default,
-  MessageList: () => MessageList_default,
-  analyzeCodeQuality: () => analyzeCodeQuality,
-  analyzeFileStructure: () => analyzeFileStructure,
-  analyzePackageJson: () => analyzePackageJson,
-  analyzeProject: () => analyzeProject,
-  createAIAssistant: () => createAIAssistant,
-  createAssistantChain: () => createAssistantChain,
-  createSystemPrompt: () => createSystemPrompt,
-  createSystemPromptWithContext: () => createSystemPromptWithContext,
-  deleteProjectContext: () => deleteProjectContext,
-  generateContextAwareResponse: () => generateContextAwareResponse,
-  getLatestProjectContext: () => getLatestProjectContext,
-  getProjectContextById: () => getProjectContextById,
-  getUserProjects: () => getUserProjects,
-  processChat: () => processChat,
-  processChatStream: () => processChatStream,
-  storeProjectContext: () => storeProjectContext
-});
-module.exports = __toCommonJS(index_exports);
 
-// src/components/chat/AIChatComponent.tsx
-var import_react3 = require("react");
-var import_uuid = require("uuid");
 
-// src/components/chat/MessageList.tsx
-var import_react = require("react");
 
-// src/components/chat/MessageItem.tsx
-var import_jsx_runtime = require("react/jsx-runtime");
-var MessageItem = ({ message, isAI }) => {
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `flex ${isAI ? "justify-start" : "justify-end"} mb-4`, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-    "div",
-    {
-      className: `max-w-[70%] rounded-lg p-3 ${isAI ? "bg-gray-100" : "bg-blue-500 text-white"}`,
-      children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-sm", children: message.content })
-    }
-  ) });
-};
-var MessageItem_default = MessageItem;
 
-// src/components/chat/MessageList.tsx
-var import_jsx_runtime2 = require("react/jsx-runtime");
-var MessageList = ({ messages, loading = false }) => {
-  const messagesEndRef = (0, import_react.useRef)(null);
-  (0, import_react.useEffect)(() => {
-    var _a2;
-    (_a2 = messagesEndRef.current) == null ? void 0 : _a2.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex-1 overflow-y-auto p-4", children: [
-    messages.map((message) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      MessageItem_default,
-      {
-        message,
-        isAI: message.role === "assistant"
-      },
-      message.id
-    )),
-    loading && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex justify-start mb-4", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "bg-gray-100 rounded-lg p-3 max-w-[70%]", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex space-x-2", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        "div",
-        {
-          className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce",
-          style: { animationDelay: "0.2s" }
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        "div",
-        {
-          className: "w-2 h-2 rounded-full bg-gray-400 animate-bounce",
-          style: { animationDelay: "0.4s" }
-        }
-      )
-    ] }) }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: messagesEndRef })
-  ] });
-};
-var MessageList_default = MessageList;
-
-// src/components/chat/ChatInput.tsx
-var import_react2 = require("react");
-var import_jsx_runtime3 = require("react/jsx-runtime");
-var ChatInput = ({
-  onSendMessage,
-  disabled = false,
-  placeholder
-}) => {
-  const [input, setInput] = (0, import_react2.useState)("");
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (input.trim() && !disabled) {
-      onSendMessage(input);
-      setInput("");
-    }
-  };
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("form", { onSubmit: handleSubmit, className: "border-t p-4", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex space-x-2", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-      "input",
-      {
-        type: "text",
-        value: input,
-        onChange: (e) => setInput(e.target.value),
-        placeholder: placeholder || "Type your message...",
-        disabled,
-        className: "flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500",
-        "data-testid": "chat-input"
-      }
-    ),
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-      "button",
-      {
-        type: "submit",
-        disabled: disabled || !input.trim(),
-        className: "bg-blue-500 text-white rounded-lg px-4 py-2 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-300",
-        children: "Send"
-      }
-    )
-  ] }) });
-};
-var ChatInput_default = ChatInput;
-
-// src/components/chat/AIChatComponent.tsx
-var import_jsx_runtime4 = require("react/jsx-runtime");
-var AIChatComponent = ({
-  apiKey,
-  apiEndpoint = "/api/assistant",
-  initialMessages = [],
-  placeholder = "Type your message...",
-  className = "",
-  onMessageSent,
-  onResponseReceived
-}) => {
-  const [messages, setMessages] = (0, import_react3.useState)(initialMessages);
-  const [loading, setLoading] = (0, import_react3.useState)(false);
-  const [error, setError] = (0, import_react3.useState)(null);
-  const sendMessage = async (text) => {
-    if (!text.trim()) return;
-    const userMessage = {
-      id: (0, import_uuid.v4)(),
-      role: "user",
-      content: text,
-      createdAt: /* @__PURE__ */ new Date()
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setLoading(true);
-    setError(null);
-    onMessageSent == null ? void 0 : onMessageSent(userMessage);
-    try {
-      const headers = {
-        "Content-Type": "application/json"
-      };
-      if (apiKey) {
-        headers["Authorization"] = `Bearer ${apiKey}`;
-      }
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          message: text,
-          history: messages
-        })
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-      const aiMessage = {
-        id: data.id || (0, import_uuid.v4)(),
-        role: "assistant",
-        content: data.response,
-        createdAt: new Date(data.timestamp || Date.now())
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-      onResponseReceived == null ? void 0 : onResponseReceived(aiMessage);
-    } catch (err) {
-      console.error("Error sending message:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to get AI response"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: `flex flex-col h-full ${className}`, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(MessageList_default, { messages, loading }) }),
-    error && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "p-2 text-red-500 text-sm text-center", children: error }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "mt-auto", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-      ChatInput_default,
-      {
-        onSendMessage: sendMessage,
-        disabled: loading,
-        placeholder
-      }
-    ) })
-  ] });
-};
-var AIChatComponent_default = AIChatComponent;
-
-// src/client-lib/ai-assistant-client.ts
-var import_uuid2 = require("uuid");
-function createAIAssistant(options) {
-  const apiUrl = options.apiUrl.endsWith("/") ? options.apiUrl.slice(0, -1) : options.apiUrl;
-  const apiKey = options.apiKey;
-  const appContext = options.appContext;
-  const fetchWithAuth = async (endpoint, options2) => {
-    const url = `${apiUrl}${endpoint}`;
-    const headers = {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...(options2 == null ? void 0 : options2.headers) || {}
-    };
-    return fetch(url, {
-      ...options2,
-      headers
-    });
-  };
-  return {
-    // Send a message to the AI assistant
-    sendMessage: async (message, history = [], contextId) => {
-      const response = await fetchWithAuth("/assistant", {
-        method: "POST",
-        body: JSON.stringify({
-          message,
-          history,
-          contextId
-        })
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-      return {
-        id: data.id || (0, import_uuid2.v4)(),
-        role: "assistant",
-        content: data.response || data.content,
-        createdAt: data.timestamp || Date.now()
-      };
-    },
-    getSessions: async () => {
-      const response = await fetchWithAuth("/sessions");
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.sessions;
-    },
-    createSession: async (title, contextId) => {
-      const response = await fetchWithAuth("/sessions", {
-        method: "POST",
-        body: JSON.stringify({ title, contextId })
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      return response.json();
-    },
-    getSessionMessages: async (sessionId) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}/messages`);
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.messages;
-    },
-    sendMessageToSession: async (sessionId, content) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ content })
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      return response.json();
-    },
-    updateSession: async (sessionId, data) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}`, {
-        method: "PATCH",
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-    },
-    deleteSession: async (sessionId) => {
-      const response = await fetchWithAuth(`/sessions/${sessionId}`, {
-        method: "DELETE"
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-    },
-    // streaming method
-    streamMessage: async (message, history = [], onChunk, contextId) => {
-      var _a2;
-      const headers = {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      };
-      if (appContext) {
-        headers["x-app-context"] = appContext;
-      }
-      const response = await fetch(`${apiUrl}/chat`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          message,
-          history,
-          streaming: true,
-          contextId
-        })
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const reader = (_a2 = response.body) == null ? void 0 : _a2.getReader();
-      if (!reader) throw new Error("Response body is null");
-      let fullText = "";
-      const decoder = new TextDecoder();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          fullText += chunk;
-          onChunk(chunk);
-        }
-      } finally {
-        reader.releaseLock();
-      }
-      return {
-        id: (0, import_uuid2.v4)(),
-        role: "assistant",
-        content: fullText,
-        createdAt: /* @__PURE__ */ new Date()
-      };
-    },
-    // Project analysis
-    analyzeProject: async (projectPath) => {
-      const response = await fetchWithAuth("/analyze", {
-        method: "POST",
-        body: JSON.stringify({ projectPath })
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-      return {
-        context: data.analysis.context,
-        contextId: data.contextId
-      };
-    },
-    // Project context management
-    getUserProjects: async () => {
-      const response = await fetchWithAuth("/projects");
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.projects;
-    },
-    getProjectContext: async (contextId) => {
-      const response = await fetchWithAuth(`/projects/${contextId}`);
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      return response.json();
-    },
-    deleteProjectContext: async (contextId) => {
-      const response = await fetchWithAuth(`/projects/${contextId}`, {
-        method: "DELETE"
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-    }
-  };
-}
+var _chunkOSNTQXWXjs = require('./chunk-OSNTQXWX.js');
 
 // src/lib/analyzer/index.ts
-var import_fs2 = __toESM(require("fs"));
-var import_promises = __toESM(require("fs/promises"));
-var import_path2 = __toESM(require("path"));
+var _fs = require('fs'); var _fs2 = _interopRequireDefault(_fs);
+var _promises = require('fs/promises'); var _promises2 = _interopRequireDefault(_promises);
+var _path = require('path'); var _path2 = _interopRequireDefault(_path);
 
 // src/lib/analyzer/package-analyzer.ts
 var TECH_CATEGORIES = {
@@ -851,8 +446,8 @@ function detectCodePatterns(allFiles, allDirs) {
 }
 
 // src/lib/analyzer/code-quality-analyzer.ts
-var import_fs = __toESM(require("fs"));
-var import_path = __toESM(require("path"));
+
+
 async function analyzeCodeQuality(rootDir) {
   const result = {
     patterns: [],
@@ -864,19 +459,19 @@ async function analyzeCodeQuality(rootDir) {
       apiRoutesCount: 0
     }
   };
-  const hasTypeScript = await fileExists(import_path.default.join(rootDir, "tsconfig.json"));
+  const hasTypeScript = await fileExists(_path2.default.join(rootDir, "tsconfig.json"));
   result.bestPractices.push({
     name: "TypeScript",
     detected: hasTypeScript,
     details: hasTypeScript ? "Project uses TypeScript for type safety" : "TypeScript not detected"
   });
-  const hasESLint = await fileExists(import_path.default.join(rootDir, ".eslintrc.js")) || await fileExists(import_path.default.join(rootDir, ".eslintrc")) || await fileExists(import_path.default.join(rootDir, "eslint.config.js")) || await fileExists(import_path.default.join(rootDir, "eslint.config.mjs"));
+  const hasESLint = await fileExists(_path2.default.join(rootDir, ".eslintrc.js")) || await fileExists(_path2.default.join(rootDir, ".eslintrc")) || await fileExists(_path2.default.join(rootDir, "eslint.config.js")) || await fileExists(_path2.default.join(rootDir, "eslint.config.mjs"));
   result.bestPractices.push({
     name: "ESLint",
     detected: hasESLint,
     details: hasESLint ? "Project uses ESLint for code quality" : "ESLint not detected"
   });
-  const hasJest = await fileExists(import_path.default.join(rootDir, "jest.config.js")) || await fileExists(import_path.default.join(rootDir, "jest.config.ts"));
+  const hasJest = await fileExists(_path2.default.join(rootDir, "jest.config.js")) || await fileExists(_path2.default.join(rootDir, "jest.config.ts"));
   result.bestPractices.push({
     name: "Testing",
     detected: hasJest,
@@ -894,7 +489,7 @@ async function countCodeMetrics(rootDir) {
     apiRoutesCount: 0
   };
   try {
-    const componentsDir = import_path.default.join(rootDir, "components");
+    const componentsDir = _path2.default.join(rootDir, "components");
     if (await fileExists(componentsDir)) {
       const componentFiles = await walkDir(componentsDir, [".tsx", ".jsx"]);
       metrics.componentCount = componentFiles.length;
@@ -902,27 +497,27 @@ async function countCodeMetrics(rootDir) {
   } catch (e) {
   }
   try {
-    const hooksDir = import_path.default.join(rootDir, "hooks");
+    const hooksDir = _path2.default.join(rootDir, "hooks");
     if (await fileExists(hooksDir)) {
       const hookFiles = await walkDir(hooksDir, [".ts", ".tsx", ".js", ".jsx"]);
       metrics.hooksCount = hookFiles.length;
     }
-    const libDir = import_path.default.join(rootDir, "lib");
+    const libDir = _path2.default.join(rootDir, "lib");
     if (await fileExists(libDir)) {
       const libFiles = await walkDir(libDir, [".ts", ".js"]);
       metrics.hooksCount += libFiles.filter(
-        (file) => import_path.default.basename(file).startsWith("use")
+        (file) => _path2.default.basename(file).startsWith("use")
       ).length;
     }
   } catch (e) {
   }
   try {
-    const utilsDir = import_path.default.join(rootDir, "utils");
+    const utilsDir = _path2.default.join(rootDir, "utils");
     if (await fileExists(utilsDir)) {
       const utilsFiles = await walkDir(utilsDir, [".ts", ".js"]);
       metrics.utilsCount = utilsFiles.length;
     }
-    const libUtilsDir = import_path.default.join(rootDir, "lib/utils");
+    const libUtilsDir = _path2.default.join(rootDir, "lib/utils");
     if (await fileExists(libUtilsDir)) {
       const libUtilsFiles = await walkDir(libUtilsDir, [".ts", ".js"]);
       metrics.utilsCount += libUtilsFiles.length;
@@ -930,14 +525,14 @@ async function countCodeMetrics(rootDir) {
   } catch (e) {
   }
   try {
-    const apiDir = import_path.default.join(rootDir, "app/api");
+    const apiDir = _path2.default.join(rootDir, "app/api");
     if (await fileExists(apiDir)) {
       const apiFiles = await walkDir(apiDir, [".ts", ".js"]);
       metrics.apiRoutesCount = apiFiles.filter(
-        (file) => import_path.default.basename(file) === "route.ts" || import_path.default.basename(file) === "route.js"
+        (file) => _path2.default.basename(file) === "route.ts" || _path2.default.basename(file) === "route.js"
       ).length;
     }
-    const pagesApiDir = import_path.default.join(rootDir, "pages/api");
+    const pagesApiDir = _path2.default.join(rootDir, "pages/api");
     if (await fileExists(pagesApiDir)) {
       const pagesApiFiles = await walkDir(pagesApiDir, [".ts", ".js"]);
       metrics.apiRoutesCount += pagesApiFiles.length;
@@ -954,7 +549,7 @@ async function detectCodeQualityPatterns(rootDir) {
     examples: ["React imports first, then libraries, then local modules"],
     locations: ["Throughout the codebase"]
   });
-  if (await fileExists(import_path.default.join(rootDir, "components"))) {
+  if (await fileExists(_path2.default.join(rootDir, "components"))) {
     patterns.push({
       name: "Component Composition",
       description: "Building complex UIs from smaller, reusable components",
@@ -998,7 +593,7 @@ async function detectCodeQualityPatterns(rootDir) {
 }
 async function fileExists(filePath) {
   try {
-    await import_fs.default.promises.access(filePath);
+    await _fs2.default.promises.access(filePath);
     return true;
   } catch (e) {
     return false;
@@ -1008,14 +603,14 @@ async function walkDir(dir, extensions = []) {
   if (!await fileExists(dir)) {
     return [];
   }
-  const entries = await import_fs.default.promises.readdir(dir, { withFileTypes: true });
+  const entries = await _fs2.default.promises.readdir(dir, { withFileTypes: true });
   const files = await Promise.all(
     entries.map(async (entry) => {
-      const fullPath = import_path.default.join(dir, entry.name);
+      const fullPath = _path2.default.join(dir, entry.name);
       if (entry.isDirectory()) {
         return walkDir(fullPath, extensions);
       } else if (entry.isFile()) {
-        const ext = import_path.default.extname(entry.name);
+        const ext = _path2.default.extname(entry.name);
         if (extensions.length === 0 || extensions.includes(ext)) {
           return [fullPath];
         }
@@ -1030,7 +625,7 @@ async function findFilesWithContent(rootDir, patterns, extensions = []) {
   try {
     const files = await walkDir(rootDir, extensions);
     for (const file of files) {
-      const basename = import_path.default.basename(file);
+      const basename = _path2.default.basename(file);
       if (patterns.some((pattern) => basename.includes(pattern))) {
         matchingFiles.push(file);
       }
@@ -1043,10 +638,10 @@ async function findFilesWithContent(rootDir, patterns, extensions = []) {
 // src/lib/analyzer/index.ts
 async function getAllFilePaths(dirPath, baseDir = dirPath) {
   let files = [];
-  const entries = await import_promises.default.readdir(dirPath, { withFileTypes: true });
+  const entries = await _promises2.default.readdir(dirPath, { withFileTypes: true });
   for (const entry of entries) {
-    const fullPath = import_path2.default.join(dirPath, entry.name);
-    const relativePath = import_path2.default.relative(baseDir, fullPath);
+    const fullPath = _path2.default.join(dirPath, entry.name);
+    const relativePath = _path2.default.relative(baseDir, fullPath);
     if (entry.isDirectory()) {
       if (entry.name !== "node_modules" && entry.name !== ".git") {
         files = files.concat(await getAllFilePaths(fullPath, baseDir));
@@ -1059,12 +654,12 @@ async function getAllFilePaths(dirPath, baseDir = dirPath) {
 }
 async function analyzeProject(projectPath) {
   var _a2, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u;
-  if (!import_fs2.default.existsSync(projectPath)) {
+  if (!_fs2.default.existsSync(projectPath)) {
     throw new Error(`Project path does not exist: ${projectPath}`);
   }
   const result = {
     context: {
-      projectName: import_path2.default.basename(projectPath),
+      projectName: _path2.default.basename(projectPath),
       technologies: [],
       architecturalPatterns: [],
       codePatterns: [],
@@ -1089,9 +684,9 @@ async function analyzeProject(projectPath) {
   };
   try {
     const allProjectFiles = await getAllFilePaths(projectPath);
-    const packageJsonPath = import_path2.default.join(projectPath, "package.json");
-    if (import_fs2.default.existsSync(packageJsonPath)) {
-      const packageJsonRaw = await import_promises.default.readFile(
+    const packageJsonPath = _path2.default.join(projectPath, "package.json");
+    if (_fs2.default.existsSync(packageJsonPath)) {
+      const packageJsonRaw = await _promises2.default.readFile(
         packageJsonPath,
         "utf-8"
       );
@@ -1108,13 +703,13 @@ async function analyzeProject(projectPath) {
         }
       }
     }
-    const tsconfigPath = import_path2.default.join(projectPath, "tsconfig.json");
-    if (import_fs2.default.existsSync(tsconfigPath)) {
-      const tsconfigRaw = await import_promises.default.readFile(tsconfigPath, "utf-8");
+    const tsconfigPath = _path2.default.join(projectPath, "tsconfig.json");
+    if (_fs2.default.existsSync(tsconfigPath)) {
+      const tsconfigRaw = await _promises2.default.readFile(tsconfigPath, "utf-8");
       result.rawFileContents.tsConfig = JSON.parse(tsconfigRaw);
     }
-    const nextConfigJsPath = import_path2.default.join(projectPath, "next.config.js");
-    const nextConfigTsPath = import_path2.default.join(projectPath, "next.config.ts");
+    const nextConfigJsPath = _path2.default.join(projectPath, "next.config.js");
+    const nextConfigTsPath = _path2.default.join(projectPath, "next.config.ts");
     let nextConfigPathResolved;
     if (allProjectFiles.includes("next.config.js")) {
       nextConfigPathResolved = nextConfigJsPath;
@@ -1187,12 +782,23 @@ async function analyzeProject(projectPath) {
 }
 
 // src/lib/analyzer/context-storage.ts
-var import_firestore3 = require("firebase/firestore");
+
+
+
+
+
+
+
+
+
+
+
+var _firestore = require('firebase/firestore');
 
 // src/lib/firebase.ts
-var import_app = require("firebase/app");
-var import_firestore = require("firebase/firestore");
-var import_auth = require("firebase/auth");
+var _app = require('firebase/app');
+
+var _auth = require('firebase/auth');
 var firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -1201,17 +807,17 @@ var firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
-var clientApp = (0, import_app.initializeApp)(firebaseConfig);
-var clientDb = (0, import_firestore.getFirestore)(clientApp);
-var clientAuth = (0, import_auth.getAuth)(clientApp);
+var clientApp = _app.initializeApp.call(void 0, firebaseConfig);
+var clientDb = _firestore.getFirestore.call(void 0, clientApp);
+var clientAuth = _auth.getAuth.call(void 0, clientApp);
 
 // src/lib/firebase-admin.ts
-var import_app2 = require("firebase-admin/app");
-var import_auth2 = require("firebase-admin/auth");
-var import_firestore2 = require("firebase-admin/firestore");
+var _app3 = require('firebase-admin/app');
+var _auth3 = require('firebase-admin/auth');
+var _firestore3 = require('firebase-admin/firestore');
 var _a;
-var adminApp = (0, import_app2.getApps)().length === 0 ? (0, import_app2.initializeApp)({
-  credential: (0, import_app2.cert)({
+var adminApp = _app3.getApps.call(void 0, ).length === 0 ? _app3.initializeApp.call(void 0, {
+  credential: _app3.cert.call(void 0, {
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
     // The private key needs to have newlines replaced
@@ -1221,14 +827,14 @@ var adminApp = (0, import_app2.getApps)().length === 0 ? (0, import_app2.initial
     )
   })
   // databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`,
-}) : (0, import_app2.getApps)()[0];
-var adminAuth = (0, import_auth2.getAuth)(adminApp);
-var adminDb = (0, import_firestore2.getFirestore)(adminApp);
+}) : _app3.getApps.call(void 0, )[0];
+var adminAuth = _auth3.getAuth.call(void 0, adminApp);
+var adminDb = _firestore3.getFirestore.call(void 0, adminApp);
 
 // src/lib/analyzer/context-storage.ts
-var import_crypto = __toESM(require("crypto"));
+var _crypto = require('crypto'); var _crypto2 = _interopRequireDefault(_crypto);
 function hashProjectPath(projectPath) {
-  return import_crypto.default.createHash("sha256").update(projectPath).digest("hex");
+  return _crypto2.default.createHash("sha256").update(projectPath).digest("hex");
 }
 async function storeProjectContext(userId, projectPath, result) {
   const projectHash = hashProjectPath(projectPath);
@@ -1242,8 +848,8 @@ async function storeProjectContext(userId, projectPath, result) {
       updatedAt: Date.now(),
       version: existingContext.version + 1
     };
-    const contextRef = (0, import_firestore3.doc)(clientDb, "projectContexts", existingContext.id);
-    await (0, import_firestore3.updateDoc)(contextRef, contextData);
+    const contextRef = _firestore.doc.call(void 0, clientDb, "projectContexts", existingContext.id);
+    await _firestore.updateDoc.call(void 0, contextRef, contextData);
     return existingContext.id;
   } else {
     const contextData = {
@@ -1255,8 +861,8 @@ async function storeProjectContext(userId, projectPath, result) {
       updatedAt: Date.now(),
       version: 1
     };
-    const docRef = await (0, import_firestore3.addDoc)(
-      (0, import_firestore3.collection)(clientDb, "projectContexts"),
+    const docRef = await _firestore.addDoc.call(void 0, 
+      _firestore.collection.call(void 0, clientDb, "projectContexts"),
       contextData
     );
     return docRef.id;
@@ -1264,14 +870,14 @@ async function storeProjectContext(userId, projectPath, result) {
 }
 async function getLatestProjectContext(userId, projectPath) {
   const projectHash = hashProjectPath(projectPath);
-  const contextQuery = (0, import_firestore3.query)(
-    (0, import_firestore3.collection)(clientDb, "projectContexts"),
-    (0, import_firestore3.where)("userId", "==", userId),
-    (0, import_firestore3.where)("projectHash", "==", projectHash),
-    (0, import_firestore3.orderBy)("version", "desc"),
-    (0, import_firestore3.limit)(1)
+  const contextQuery = _firestore.query.call(void 0, 
+    _firestore.collection.call(void 0, clientDb, "projectContexts"),
+    _firestore.where.call(void 0, "userId", "==", userId),
+    _firestore.where.call(void 0, "projectHash", "==", projectHash),
+    _firestore.orderBy.call(void 0, "version", "desc"),
+    _firestore.limit.call(void 0, 1)
   );
-  const snapshot = await (0, import_firestore3.getDocs)(contextQuery);
+  const snapshot = await _firestore.getDocs.call(void 0, contextQuery);
   if (snapshot.empty) {
     return null;
   }
@@ -1284,12 +890,12 @@ async function getLatestProjectContext(userId, projectPath) {
 async function getUserProjects(userId) {
   const projectHashes = /* @__PURE__ */ new Set();
   const latestVersions = /* @__PURE__ */ new Map();
-  const contextQuery = (0, import_firestore3.query)(
-    (0, import_firestore3.collection)(clientDb, "projectContexts"),
-    (0, import_firestore3.where)("userId", "==", userId),
-    (0, import_firestore3.orderBy)("updatedAt", "desc")
+  const contextQuery = _firestore.query.call(void 0, 
+    _firestore.collection.call(void 0, clientDb, "projectContexts"),
+    _firestore.where.call(void 0, "userId", "==", userId),
+    _firestore.orderBy.call(void 0, "updatedAt", "desc")
   );
-  const snapshot = await (0, import_firestore3.getDocs)(contextQuery);
+  const snapshot = await _firestore.getDocs.call(void 0, contextQuery);
   for (const doc2 of snapshot.docs) {
     const data = doc2.data();
     const hash = data.projectHash;
@@ -1305,13 +911,13 @@ async function getUserProjects(userId) {
 }
 async function deleteProjectContext(userId, projectPath) {
   const projectHash = hashProjectPath(projectPath);
-  const contextQuery = (0, import_firestore3.query)(
-    (0, import_firestore3.collection)(clientDb, "projectContexts"),
-    (0, import_firestore3.where)("userId", "==", userId),
-    (0, import_firestore3.where)("projectHash", "==", projectHash)
+  const contextQuery = _firestore.query.call(void 0, 
+    _firestore.collection.call(void 0, clientDb, "projectContexts"),
+    _firestore.where.call(void 0, "userId", "==", userId),
+    _firestore.where.call(void 0, "projectHash", "==", projectHash)
   );
-  const snapshot = await (0, import_firestore3.getDocs)(contextQuery);
-  const deletePromises = snapshot.docs.map((doc2) => (0, import_firestore3.deleteDoc)(doc2.ref));
+  const snapshot = await _firestore.getDocs.call(void 0, contextQuery);
+  const deletePromises = snapshot.docs.map((doc2) => _firestore.deleteDoc.call(void 0, doc2.ref));
   await Promise.all(deletePromises);
 }
 async function getProjectContextById(contextId) {
@@ -1327,20 +933,20 @@ async function getProjectContextById(contextId) {
 }
 
 // src/lib/ai/chains.ts
-var import_prompts = require("@langchain/core/prompts");
+var _prompts = require('@langchain/core/prompts');
 
 // src/lib/ai/models.ts
-var import_openai = require("@langchain/openai");
+var _openai = require('@langchain/openai');
 function createChatModel(modelName, apiKey, options = {}) {
   const key = apiKey || process.env.OPENAI_API_KEY;
   if (modelName.includes("gpt")) {
-    return new import_openai.ChatOpenAI({
+    return new (0, _openai.ChatOpenAI)({
       modelName,
       openAIApiKey: key,
       ...options
     });
   }
-  return new import_openai.ChatOpenAI({
+  return new (0, _openai.ChatOpenAI)({
     modelName: "gpt-4o",
     openAIApiKey: key,
     ...options
@@ -1348,26 +954,26 @@ function createChatModel(modelName, apiKey, options = {}) {
 }
 
 // src/lib/ai/chains.ts
-var import_runnables = require("@langchain/core/runnables");
+var _runnables = require('@langchain/core/runnables');
 function createAssistantChain(systemPrompt, modelName = "gpt-4o", apiKey) {
   const model = createChatModel(modelName, apiKey);
-  const prompt = import_prompts.ChatPromptTemplate.fromMessages([
+  const prompt = _prompts.ChatPromptTemplate.fromMessages([
     ["system", systemPrompt],
     ["human", "{input}"]
   ]);
-  return import_runnables.RunnableSequence.from([prompt, model]);
+  return _runnables.RunnableSequence.from([prompt, model]);
 }
 
 // src/lib/ai/server.ts
-var import_ai = require("ai");
-var import_openai3 = require("@ai-sdk/openai");
+var _ai = require('ai');
+var _openai3 = require('@ai-sdk/openai');
 
 // src/lib/ai/context-adapter.ts
-var import_openai2 = require("@langchain/openai");
-var import_prompts2 = require("@langchain/core/prompts");
-var import_messages = require("@langchain/core/messages");
+
+
+var _messages = require('@langchain/core/messages');
 async function generateContextAwareResponse(message, history, context, config) {
-  const llm = new import_openai2.ChatOpenAI({
+  const llm = new (0, _openai.ChatOpenAI)({
     modelName: (config == null ? void 0 : config.model) || "gpt-4o-mini",
     temperature: 0.7,
     streaming: (config == null ? void 0 : config.streaming) || false,
@@ -1385,11 +991,11 @@ async function assessContextRelevance(query2, context, llm) {
     return 0;
   }
   const contextSummary = formatContextSummary(context);
-  const contextAssessmentPrompt = import_prompts2.ChatPromptTemplate.fromMessages([
-    new import_messages.SystemMessage(
+  const contextAssessmentPrompt = _prompts.ChatPromptTemplate.fromMessages([
+    new (0, _messages.SystemMessage)(
       "You are an expert at determining how relevant project context is to user queries. Analyze the provided project context and determine how relevant it is to answering the user query. Assign a relevance score from 0 (completely irrelevant) to 10 (highly relevant)."
     ),
-    new import_messages.HumanMessage(
+    new (0, _messages.HumanMessage)(
       `Project Context: ${contextSummary}
 
 User Query: ${query2}
@@ -1404,23 +1010,23 @@ Assess the relevance of this context to the query on a scale of 0-10 and explain
 }
 async function generateEnhancedResponse(query2, context, llm) {
   const contextString = formatContextSummary(context);
-  const contextEnhancedPrompt = import_prompts2.ChatPromptTemplate.fromMessages([
-    new import_messages.SystemMessage(
+  const contextEnhancedPrompt = _prompts.ChatPromptTemplate.fromMessages([
+    new (0, _messages.SystemMessage)(
       `You are an AI assistant with expertise in software development. Use the provided project context to tailor your response to be more relevant and specific to the user's project. Focus particularly on technology choices, architectural patterns, and coding conventions that match the context provided.
 
 ${contextString}`
     ),
-    new import_messages.HumanMessage(query2)
+    new (0, _messages.HumanMessage)(query2)
   ]);
   const response = await contextEnhancedPrompt.pipe(llm).invoke({});
   return response.content.toString();
 }
 async function generateStandardResponse(query2, llm) {
-  const standardPrompt = import_prompts2.ChatPromptTemplate.fromMessages([
-    new import_messages.SystemMessage(
+  const standardPrompt = _prompts.ChatPromptTemplate.fromMessages([
+    new (0, _messages.SystemMessage)(
       "You are an AI assistant with expertise in software development. Provide a helpful answer to the user's query."
     ),
-    new import_messages.HumanMessage(query2)
+    new (0, _messages.HumanMessage)(query2)
   ]);
   const response = await standardPrompt.pipe(llm).invoke({});
   return response.content.toString();
@@ -1444,7 +1050,7 @@ PROJECT CONTEXT SUMMARY:
 }
 
 // src/lib/firebase/context-service.ts
-var import_firestore4 = require("firebase-admin/firestore");
+
 async function getProjectContext(projectId) {
   if (!projectId) {
     console.warn("getProjectContext called with no projectId");
@@ -1462,7 +1068,7 @@ async function getProjectContext(projectId) {
 }
 
 // src/lib/ai/server.ts
-var openaiModel = (0, import_openai3.openai)("gpt-4o");
+var openaiModel = _openai3.openai.call(void 0, "gpt-4o");
 async function processChat(message, history = [], appContext, projectId) {
   try {
     if (projectId) {
@@ -1517,7 +1123,7 @@ async function processChatStream(message, history = [], appContext, projectConte
     // message here already contains RAG + original query
   ];
   try {
-    return (0, import_ai.streamText)({
+    return _ai.streamText.call(void 0, {
       model: openaiModel,
       // or activeModel if using Groq/other
       messages: formattedMessages,
@@ -1588,26 +1194,25 @@ When answering questions about this project:
 5. Use code examples that match the project's style if possible.`;
   return prompt;
 }
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  AIChatComponent,
-  ChatInput,
-  MessageItem,
-  MessageList,
-  analyzeCodeQuality,
-  analyzeFileStructure,
-  analyzePackageJson,
-  analyzeProject,
-  createAIAssistant,
-  createAssistantChain,
-  createSystemPrompt,
-  createSystemPromptWithContext,
-  deleteProjectContext,
-  generateContextAwareResponse,
-  getLatestProjectContext,
-  getProjectContextById,
-  getUserProjects,
-  processChat,
-  processChatStream,
-  storeProjectContext
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exports.AIChatComponent = _chunkOSNTQXWXjs.AIChatComponent_default; exports.ChatInput = _chunkOSNTQXWXjs.ChatInput_default; exports.MessageItem = _chunkOSNTQXWXjs.MessageItem_default; exports.MessageList = _chunkOSNTQXWXjs.MessageList_default; exports.analyzeCodeQuality = analyzeCodeQuality; exports.analyzeFileStructure = analyzeFileStructure; exports.analyzePackageJson = analyzePackageJson; exports.analyzeProject = analyzeProject; exports.createAIAssistant = _chunkOSNTQXWXjs.createAIAssistant; exports.createAssistantChain = createAssistantChain; exports.createSystemPrompt = createSystemPrompt; exports.createSystemPromptWithContext = createSystemPromptWithContext; exports.deleteProjectContext = deleteProjectContext; exports.generateContextAwareResponse = generateContextAwareResponse; exports.getLatestProjectContext = getLatestProjectContext; exports.getProjectContextById = getProjectContextById; exports.getUserProjects = getUserProjects; exports.processChat = processChat; exports.processChatStream = processChatStream; exports.storeProjectContext = storeProjectContext;

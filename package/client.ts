@@ -11,48 +11,20 @@ export type { AIAssistantClientOptions } from '../src/client-lib/ai-assistant-cl
 // Export types
 export type { Message, ChatSession } from '../src/lib/types';
 
-// Export analyzer
-export { analyzeProject } from '../src/lib/analyzer';
+// Export relevant types from analyzer (assuming these types themselves don't import server code)
 export type {
   AnalyzerProjectContext,
   Technology,
   CodePattern,
   ArchitecturalPattern,
   AnalyzerResult,
-} from '../src/lib/analyzer';
-
-// Export context storage
-export {
-  storeProjectContext,
-  getLatestProjectContext,
-  getUserProjects,
-  deleteProjectContext,
-  getProjectContextById,
-} from '../src/lib/analyzer/context-storage';
-export type { StoredProjectContext } from '../src/lib/analyzer/context-storage';
-
-export {
-  processChat,
-  processChatStream,
-  createSystemPrompt,
-  createSystemPromptWithContext,
-} from '../src/lib/ai/server';
-export { createAssistantChain } from '../src/lib/ai/chains';
-export { generateContextAwareResponse } from '../src/lib/ai/context-adapter';
-
-export {
-  analyzePackageJson,
-  analyzeFileStructure,
-  analyzeCodeQuality,
-} from '../src/lib/analyzer';
-
-export type {
   CodingConvention,
   PackageJson,
   TSConfig,
   NextConfig,
 } from '../src/lib/analyzer';
 
+// Export relevant types from context/types (assuming these types themselves don't import server code)
 export type {
   ProjectContext as DomainProjectContext,
   Technology as DomainTechnology,
@@ -63,3 +35,7 @@ export type {
   UserPreferenceValue,
   StoredAnalysisResult as DomainStoredAnalysisResult,
 } from '../src/lib/context/types';
+
+// StoredProjectContext type IF it doesn't pull server code.
+// Let's be cautious and check its definition before uncommenting.
+// export type { StoredProjectContext } from '../src/lib/analyzer/context-storage';
