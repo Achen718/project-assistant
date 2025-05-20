@@ -13,17 +13,59 @@ import type { Message } from 'ai'; // For history type
 // Authenticate API requests (using Firebase Admin)
 async function authenticateRequest(
   request: NextRequest
-): Promise<string | null> {
+): Promise<string | null | object> {
   const authHeader = request.headers.get('authorization');
+
+  // Allow all requests in development if a specific header is present
+  if (
+    process.env.NODE_ENV === 'development' &&
+    request.headers.get('X-Development-Allow') === 'true'
+  ) {
+    console.warn(
+      'Development: Allowing request without strict authentication via X-Development-Allow header.'
+    );
+    return { devUser: true, userId: 'dev-user' }; // Return a generic dev user
+  }
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('No auth header or not Bearer');
     return null;
   }
   const token = authHeader.split(' ')[1];
+
+  // TODO: Implement proper static API key validation if needed for production
+  // For now, let's assume any bearer token in dev could be a simple static key
+  // if Firebase auth is not the primary path or fails.
+
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
-    return decodedToken.uid;
-  } catch (error) {
-    console.error('Authentication error:', error);
+    console.log(
+      'Authenticated with Firebase ID token for UID:',
+      decodedToken.uid
+    );
+    return decodedToken.uid; // Return UID for Firebase user
+  } catch (firebaseError) {
+    // If Firebase ID token verification fails, AND we are in development,
+    // we can assume it might be a static API key for simplicity.
+    // In production, you would need a more robust way to differentiate or validate static keys.
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        'Firebase ID token verification failed. In development, treating as possible static key. Token:',
+        token,
+        'Error:',
+        (firebaseError as Error).message
+      );
+      // For development, accept any non-empty token as a "static key user"
+      // if it wasn't a valid Firebase token.
+      // DO NOT USE THIS LOGIC IN PRODUCTION for static keys without actual validation.
+      if (token) {
+        return { staticKeyUser: true, keyHint: token.substring(0, 5) + '...' };
+      }
+    }
+    console.error(
+      'Authentication failed (Firebase ID token error):',
+      (firebaseError as Error).message
+    );
     return null;
   }
 }
@@ -77,72 +119,70 @@ async function getRAGContext(
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
-    // const userId = await authenticateRequest(request); // Temporarily disable auth
-    // if (!userId) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
-    console.log('Assistant API /api/assistant POST handler was hit!');
-    return NextResponse.json({ message: 'API endpoint reached successfully' });
+    const userId = await authenticateRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // const { message, history, streaming, projectId } = await request.json();
+    const { message, history, streaming, projectId } = await request.json();
 
-    // if (!message) {
-    //   return NextResponse.json(
-    //     { error: 'Message is required' },
-    //     { status: 400 }
-    //   );
-    // }
+    if (!message) {
+      return NextResponse.json(
+        { error: 'Message is required' },
+        { status: 400 }
+      );
+    }
 
-    // const appContext = request.headers.get('x-app-context') || 'assistant';
-    // const currentHistory = (history || []) as Message[];
+    const appContext = request.headers.get('x-app-context') || 'assistant';
+    const currentHistory = (history || []) as Message[];
 
-    // let augmentedMessage = message;
-    // if (process.env.RAG_ENABLED === 'true') {
-    //   const ragContext = await getRAGContext(message, projectId);
-    //   if (ragContext) {
-    //     augmentedMessage = `${ragContext}\n\nUser Question: ${message}`;
-    //   }
-    // }
+    let augmentedMessage = message;
+    if (process.env.RAG_ENABLED === 'true') {
+      const ragContext = await getRAGContext(message, projectId);
+      if (ragContext) {
+        augmentedMessage = `${ragContext}\n\nUser Question: ${message}`;
+      }
+    }
 
-    // if (streaming) {
-    //   let projectContextForStream: ProjectContext | undefined = undefined;
-    //   if (projectId) {
-    //     try {
-    //       const fetchedContext = await getProjectContext(projectId);
-    //       projectContextForStream =
-    //         fetchedContext === null ? undefined : fetchedContext;
-    //     } catch (contextError) {
-    //       console.error(
-    //         `Failed to fetch project context ID ${projectId} for streaming:`,
-    //         contextError
-    //       );
-    //     }
-    //   }
+    if (streaming) {
+      let projectContextForStream: ProjectContext | undefined = undefined;
+      if (projectId) {
+        try {
+          const fetchedContext = await getProjectContext(projectId);
+          projectContextForStream =
+            fetchedContext === null ? undefined : fetchedContext;
+        } catch (contextError) {
+          console.error(
+            `Failed to fetch project context ID ${projectId} for streaming:`,
+            contextError
+          );
+        }
+      }
 
-    //   const response = await processChatStream(
-    //     augmentedMessage,
-    //     currentHistory,
-    //     appContext,
-    //     projectContextForStream
-    //   );
-    //   return response;
-    // } else {
-    //   const aiResponseContent = await processChat(
-    //     augmentedMessage,
-    //     currentHistory,
-    //     appContext,
-    //     projectId
-    //   );
+      const response = await processChatStream(
+        augmentedMessage,
+        currentHistory,
+        appContext,
+        projectContextForStream // Pass the fetched context or undefined
+      );
+      return response;
+    } else {
+      const aiResponseContent = await processChat(
+        augmentedMessage,
+        currentHistory,
+        appContext,
+        projectId // Pass projectId here, processChat will fetch context if needed
+      );
 
-    //   return NextResponse.json({
-    //     id: crypto.randomUUID(),
-    //     content: aiResponseContent,
-    //     role: 'assistant',
-    //     timestamp: Date.now(),
-    //   });
-    // }
+      return NextResponse.json({
+        id: crypto.randomUUID(),
+        content: aiResponseContent,
+        role: 'assistant',
+        timestamp: Date.now(),
+      });
+    }
   } catch (error: unknown) {
-    console.error('Simple Assistant API error:', error);
+    console.error('Assistant API error:', error);
     const errorMessage =
       error instanceof Error ? error.message : 'Failed to process request';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
