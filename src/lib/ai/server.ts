@@ -5,6 +5,9 @@ import { groq } from '@ai-sdk/groq'; // Uncomment Groq
 import type { ProjectContext } from '@/lib/context/types';
 import { generateContextAwareResponse } from './context-adapter';
 import { getProjectContext } from '@/lib/firebase/context-service';
+import { generateEmbedding } from './embedding-utils'; // For RAG query
+import { searchSimilarEmbeddings } from '../rag/supabase-embedding-service'; // For RAG retrieval
+import { SearchResult } from '../rag/types'; // Corrected import type
 
 // console.log(
 //   'SERVER.TS: OPENAI_API_KEY from env:',
@@ -35,9 +38,11 @@ export async function processChat(
   message: string,
   history: Message[] = [],
   appContext?: string,
-  projectId?: string
+  projectId?: string,
+  userId?: string
 ): Promise<string> {
   console.log('[processChat] Entered');
+  console.log(`[processChat] Received userId: ${userId}`);
   try {
     if (projectId) {
       const projectContextData = await getProjectContext(projectId);
@@ -89,7 +94,8 @@ export async function processChatStream(
   messageContent: string,
   history: Message[] = [],
   appContext?: string,
-  projectContextInput?: ProjectContext
+  projectContextInput?: ProjectContext,
+  userId?: string
 ): Promise<Response> {
   if (!activeModel) {
     console.error('Groq API key not configured. Cannot process stream.');
@@ -106,6 +112,57 @@ export async function processChatStream(
   }
 
   let systemPrompt = '';
+  let augmentedMessageContent = messageContent;
+
+  // RAG - Retrieve context from Supabase if projectId and userId are available
+  if (projectContextInput?.projectId && userId) {
+    console.log(
+      `[processChatStream] RAG: Attempting to retrieve context for project: ${projectContextInput.projectId}, user: ${userId}`
+    );
+    try {
+      const queryEmbedding = await generateEmbedding(messageContent);
+      if (queryEmbedding) {
+        const similarChunks: SearchResult[] = await searchSimilarEmbeddings(
+          projectContextInput.projectId,
+          userId,
+          queryEmbedding,
+          0.75, // match_threshold - adjust as needed
+          5 // match_count - adjust as needed
+        );
+        if (similarChunks && similarChunks.length > 0) {
+          let ragContext =
+            '\n\n--- Retrieved Context from Codebase (Use this to answer the query): ---\n';
+          similarChunks.forEach((chunk, index) => {
+            ragContext += `Snippet ${index + 1} (from file ${
+              chunk.file_path
+            }, lines ~${chunk.start_char_offset}-${chunk.end_char_offset}):
+\`\`\`
+${chunk.chunk_text}
+\`\`\`
+---\n`;
+          });
+          augmentedMessageContent = `${messageContent}\n${ragContext}`;
+          console.log(
+            '[processChatStream] RAG: Successfully retrieved and prepended context to message.'
+          );
+        } else {
+          console.log(
+            '[processChatStream] RAG: No similar chunks found or an error occurred during search.'
+          );
+        }
+      } else {
+        console.warn(
+          '[processChatStream] RAG: Could not generate embedding for user query.'
+        );
+      }
+    } catch (ragError) {
+      console.error(
+        '[processChatStream] RAG: Error during context retrieval:',
+        ragError
+      );
+      // Proceed without RAG context if an error occurs
+    }
+  }
 
   if (projectContextInput) {
     try {
@@ -124,7 +181,7 @@ export async function processChatStream(
   const formattedMessages: Message[] = [
     { id: crypto.randomUUID(), role: 'system', content: systemPrompt },
     ...history,
-    { id: crypto.randomUUID(), role: 'user', content: messageContent },
+    { id: crypto.randomUUID(), role: 'user', content: augmentedMessageContent },
   ];
 
   try {

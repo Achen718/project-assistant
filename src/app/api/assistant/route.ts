@@ -76,7 +76,7 @@ const RAG_MATCH_COUNT = 5;
 
 async function getRAGContext(
   userQuery: string,
-  projectId?: string
+  projectId: string
 ): Promise<string> {
   if (!userQuery) return '';
   try {
@@ -88,7 +88,8 @@ async function getRAGContext(
       await findSimilarDocumentChunks(
         queryEmbedding,
         RAG_MATCH_THRESHOLD,
-        RAG_MATCH_COUNT
+        RAG_MATCH_COUNT,
+        projectId
       );
 
     if (retrievalError) {
@@ -106,9 +107,7 @@ async function getRAGContext(
           )})\nContent:\n${chunk.chunk_text}`
       )
       .join('\n\n---\n\n');
-    return `Retrieved Context from Codebase (Project: ${
-      projectId || 'any'
-    }):\n---\n${contextString}\n---`;
+    return `Retrieved Context from Codebase (Project: ${projectId}):\n---\n${contextString}\n---`;
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : 'Unknown RAG error';
@@ -137,11 +136,25 @@ export async function POST(request: NextRequest): Promise<Response> {
     const currentHistory = (history || []) as Message[];
 
     let augmentedMessage = message;
-    if (process.env.RAG_ENABLED === 'true') {
+
+    if (process.env.RAG_ENABLED === 'true' && projectId) {
+      console.log(
+        '[API Route] RAG is enabled, attempting to get RAG context for project:',
+        projectId
+      );
       const ragContext = await getRAGContext(message, projectId);
       if (ragContext) {
         augmentedMessage = `${ragContext}\n\nUser Question: ${message}`;
+        console.log('[API Route] RAG context was added to the message.');
+      } else {
+        console.log('[API Route] RAG context was empty.');
       }
+    } else if (process.env.RAG_ENABLED === 'true' && !projectId) {
+      console.log(
+        '[API Route] RAG is enabled but no projectId was provided. Skipping RAG context retrieval.'
+      );
+    } else {
+      console.log('[API Route] RAG is not enabled.');
     }
 
     if (streaming) {

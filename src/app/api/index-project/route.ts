@@ -1,219 +1,182 @@
-import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { NextRequest, NextResponse } from 'next/server';
 import {
-  LangChainLanguageCode,
-  detectLanguageFromExtension,
-  splitCodeIntoChunks,
-  SplitDocument,
-} from '@/lib/ai/text-splitter';
-import { generateEmbeddings } from '@/lib/ai/embedding-utils';
-import { addDocumentChunks, DocumentChunkData } from '@/lib/supabase/client';
+  startIndexingPipeline,
+  clearProjectEmbeddings,
+} from '../../../lib/rag/indexing-pipeline';
+import { getFirebaseUser } from '../../../lib/auth/firebase-auth-utils'; // Corrected import
+import path from 'path';
+import fs from 'fs/promises';
 
-// Configuration for indexing
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit for individual files
-const ALLOWED_EXTENSIONS = [
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.md',
-  '.mdx',
-  '.json',
-  '.py',
-  '.html',
-  '.css',
-];
-const IGNORED_DIRS = [
-  'node_modules',
-  '.git',
-  '.next',
-  'dist',
-  'out',
-  'public/generated',
-];
-const IGNORED_FILES = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
-const PROJECT_ROOT = process.cwd(); // Assumes the API is run from the project root
+// Define a base path for projects. This should be configured securely.
+// For local development, it might be a subdirectory in the user's home or project folder.
+// IMPORTANT: In a production environment, this path validation needs to be very robust
+// to prevent unauthorized file system access.
+const ALLOWED_BASE_PROJECT_DIR =
+  process.env.ALLOWED_PROJECTS_BASE_PATH ||
+  path.resolve(
+    'C:\\Users\\alvin\\OneDrive\\Desktop\\Projects\\' // Explicitly set your desired base path here
+  );
+// path.resolve(
+//   process.env.HOME || process.env.USERPROFILE || '~',
+//   'ai_assistant_projects'
+// );
 
-// --- Helper function to recursively find files ---
-async function getProjectFiles(
-  dir: string,
-  baseDir: string = dir,
-  allFiles: string[] = []
-): Promise<string[]> {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    const relativePath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
-
-    if (
-      IGNORED_DIRS.some((ignoredDir) => relativePath.startsWith(ignoredDir)) ||
-      IGNORED_FILES.includes(entry.name)
-    ) {
-      continue;
-    }
-
-    if (entry.isDirectory()) {
-      await getProjectFiles(fullPath, baseDir, allFiles);
-    } else if (
-      entry.isFile() &&
-      ALLOWED_EXTENSIONS.includes(path.extname(entry.name).toLowerCase())
-    ) {
-      try {
-        const stats = await fs.stat(fullPath);
-        if (stats.size > MAX_FILE_SIZE_BYTES) {
-          console.warn(
-            `Skipping large file (>${
-              MAX_FILE_SIZE_BYTES / (1024 * 1024)
-            }MB): ${relativePath}`
-          );
-          continue;
-        }
-        allFiles.push(relativePath);
-      } catch (statError) {
-        console.error(
-          `Error getting stats for file ${relativePath}:`,
-          statError
-        );
-      }
-    }
+// Ensure the base directory exists or can be created (optional, based on requirements)
+async function ensureBaseDir() {
+  try {
+    await fs.mkdir(ALLOWED_BASE_PROJECT_DIR, { recursive: true });
+    console.log(
+      `[ensureBaseDir] Ensured base project directory exists: ${ALLOWED_BASE_PROJECT_DIR}`
+    );
+  } catch (err) {
+    console.warn(
+      `[ensureBaseDir] Could not create or access base project directory: ${ALLOWED_BASE_PROJECT_DIR}`,
+      err
+    );
+    // Depending on strictness, you might throw an error here if the directory is critical
   }
-  return allFiles;
+}
+ensureBaseDir(); // Call once at startup
+
+async function isSafeProjectPath(projectPath: string): Promise<boolean> {
+  try {
+    const resolvedPath = path.resolve(projectPath);
+    // Security: Check if the resolved path is within the allowed base directory.
+    // It must start with the base directory path followed by a path separator to avoid partial matches (e.g. /base/dir vs /base/directory)
+    // Also allow the base directory itself.
+    if (
+      !resolvedPath.startsWith(ALLOWED_BASE_PROJECT_DIR + path.sep) &&
+      resolvedPath !== ALLOWED_BASE_PROJECT_DIR
+    ) {
+      console.warn(
+        `[isSafeProjectPath] Path traversal attempt or disallowed path: ${projectPath}. Resolved: ${resolvedPath}. Allowed base: ${ALLOWED_BASE_PROJECT_DIR}`
+      );
+      return false;
+    }
+    const stats = await fs.stat(resolvedPath);
+    if (!stats.isDirectory()) {
+      console.warn(
+        `[isSafeProjectPath] Path is not a directory: ${resolvedPath}`
+      );
+      return false;
+    }
+    return true;
+  } catch (error: unknown) {
+    // Check for specific error codes if needed, e.g., for ENOENT
+    if (
+      error instanceof Error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
+    ) {
+      console.warn(`[isSafeProjectPath] Directory not found: ${projectPath}`);
+    } else if (error instanceof Error) {
+      console.error(
+        `[isSafeProjectPath] Error validating path ${projectPath}: ${error.message}`
+      );
+    } else {
+      console.error(
+        `[isSafeProjectPath] Unknown error validating path ${projectPath}:`,
+        error
+      );
+    }
+    return false;
+  }
 }
 
-// Constants for batching
-const EMBEDDING_BATCH_SIZE = 50; // Number of texts to embed in one API call
-const DB_BATCH_SIZE = 100; // Number of chunks to insert into DB in one transaction
-
-export async function POST() {
-  console.log('Project indexing process started...');
-  let filesProcessed = 0;
-  let totalChunksGenerated = 0;
-  let errorsEncountered = 0;
-  const allChunksToEmbed: {
-    filePath: string;
-    pageContent: string;
-    language: LangChainLanguageCode;
-  }[] = [];
-
+export async function POST(request: NextRequest) {
   try {
-    const projectFiles = await getProjectFiles(PROJECT_ROOT);
-    console.log(`Found ${projectFiles.length} files to process.`);
+    const firebaseUser = await getFirebaseUser(request);
+    if (!firebaseUser || !firebaseUser.uid) {
+      return NextResponse.json(
+        { error: 'Unauthorized or user ID missing' },
+        { status: 401 }
+      );
+    }
+    const userId = firebaseUser.uid; // Extract Firebase UID
+    console.log(request);
+    const body = await request.json();
+    const { projectPath, projectId, resync } = body; // projectId from request is UUID for your projects table
 
-    for (const relativeFilePath of projectFiles) {
-      const absoluteFilePath = path.join(PROJECT_ROOT, relativeFilePath);
-      try {
-        const fileContent = await fs.readFile(absoluteFilePath, 'utf-8');
-        const language = detectLanguageFromExtension(relativeFilePath);
+    if (!projectPath || !projectId) {
+      return NextResponse.json(
+        { error: 'Missing projectPath or projectId' },
+        { status: 400 }
+      );
+    }
 
-        if (!language) {
+    if (typeof projectPath !== 'string' || typeof projectId !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid projectPath or projectId format' },
+        { status: 400 }
+      );
+    }
+
+    // Validate the projectPath
+    if (!(await isSafeProjectPath(projectPath))) {
+      return NextResponse.json(
+        {
+          error:
+            'Invalid or unsafe project path. Ensure it is within the configured allowed directory and exists as a directory.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (resync === true) {
+      console.log(
+        `[API index-project] User: ${userId}, Project: ${projectId}. Resync requested. Clearing existing embeddings.`
+      );
+      const clearResult = await clearProjectEmbeddings(projectId, userId); // Pass userId
+      if (!clearResult.success) {
+        console.warn(
+          `[API index-project] User: ${userId}, Project: ${projectId}. Failed to clear embeddings: ${clearResult.error}`
+        );
+      }
+    }
+
+    console.log(
+      `[API index-project] User: ${userId}, Project: ${projectId}. Indexing at path: ${projectPath}`
+    );
+
+    // Asynchronously start the indexing pipeline.
+    // For production, consider a job queue system (e.g., BullMQ, Celery) for long-running tasks.
+    startIndexingPipeline(projectPath, projectId, userId) // Pass userId
+      .then((indexingResult) => {
+        console.log(
+          `[API index-project] User: ${userId}, Project: ${projectId}. Async indexing completed. Files: ${indexingResult.totalFilesProcessed}, Chunks: ${indexingResult.totalChunksCreated}, Stored: ${indexingResult.totalEmbeddingsStored}, Errors: ${indexingResult.errors.length}`
+        );
+        if (indexingResult.errors.length > 0) {
           console.warn(
-            `Skipping file with unknown language: ${relativeFilePath}`
-          );
-          errorsEncountered++;
-          continue;
-        }
-
-        const splitDocuments: SplitDocument[] = await splitCodeIntoChunks(
-          fileContent,
-          relativeFilePath,
-          language
-        );
-
-        splitDocuments.forEach((doc) => {
-          allChunksToEmbed.push({
-            filePath: doc.metadata.filePath,
-            pageContent: doc.pageContent,
-            language: doc.metadata.language,
-          });
-        });
-
-        totalChunksGenerated += splitDocuments.length;
-        filesProcessed++;
-        if (filesProcessed % 10 === 0) {
-          console.log(
-            `Processed ${filesProcessed}/${projectFiles.length} files...`
+            `[API index-project] User: ${userId}, Project: ${projectId}. Indexing completed with errors:`,
+            indexingResult.errors
           );
         }
-      } catch (fileError: unknown) {
-        const message =
-          fileError instanceof Error
-            ? fileError.message
-            : 'Unknown error processing file';
-        console.error(`Error processing file ${relativeFilePath}: ${message}`);
-        errorsEncountered++;
-      }
-    }
-    console.log(
-      `All files read and chunked. Total chunks to embed: ${allChunksToEmbed.length}`
-    );
-
-    // --- Batch Embeddings and DB Storage ---
-    const supabaseChunks: DocumentChunkData[] = [];
-    for (let i = 0; i < allChunksToEmbed.length; i += EMBEDDING_BATCH_SIZE) {
-      const batchToEmbed = allChunksToEmbed.slice(i, i + EMBEDDING_BATCH_SIZE);
-      const textsToEmbed = batchToEmbed.map((chunk) => chunk.pageContent);
-
-      console.log(
-        `Generating embeddings for batch ${
-          i / EMBEDDING_BATCH_SIZE + 1
-        }/${Math.ceil(allChunksToEmbed.length / EMBEDDING_BATCH_SIZE)}...`
-      );
-      const embeddings = await generateEmbeddings(textsToEmbed);
-
-      if (embeddings && embeddings.length === batchToEmbed.length) {
-        batchToEmbed.forEach((chunk, index) => {
-          supabaseChunks.push({
-            project_id: 'current-project', // Placeholder, replace with actual project ID if managing multiple
-            file_path: chunk.filePath,
-            chunk_text: chunk.pageContent,
-            embedding: embeddings[index],
-          });
-        });
-      } else {
+        // Example: Update a database status or send a notification
+      })
+      .catch((pipelineError) => {
         console.error(
-          `Error generating embeddings for a batch, or mismatch in count. Found ${embeddings?.length} for ${batchToEmbed.length} texts. Skipping batch.`
+          `[API index-project] User: ${userId}, Project: ${projectId}. Critical failure in async startIndexingPipeline:`,
+          pipelineError
         );
-        errorsEncountered += batchToEmbed.length; // Count these as errors
-      }
-    }
-    console.log(
-      `All embeddings generated. Total Supabase chunks to store: ${supabaseChunks.length}`
-    );
+        // Example: Update a database status to FAILED or send an alert
+      });
 
-    for (let i = 0; i < supabaseChunks.length; i += DB_BATCH_SIZE) {
-      const dbBatch = supabaseChunks.slice(i, i + DB_BATCH_SIZE);
-      console.log(
-        `Storing DB batch ${i / DB_BATCH_SIZE + 1}/${Math.ceil(
-          supabaseChunks.length / DB_BATCH_SIZE
-        )}...`
-      );
-      const { error: dbError } = await addDocumentChunks(dbBatch);
-      if (dbError) {
-        console.error('Error storing batch to Supabase:', dbError.message);
-        errorsEncountered += dbBatch.length; // Count these as errors
-      }
-    }
-
-    console.log(
-      `Indexing complete. Files processed: ${filesProcessed}, Chunks created: ${totalChunksGenerated}, Errors: ${errorsEncountered}`
+    // Return an immediate acknowledgment response
+    return NextResponse.json(
+      {
+        message:
+          'Indexing process initiated successfully. Monitor server logs for progress and completion.',
+        projectId: projectId,
+        userId: userId,
+        status: 'pending',
+      },
+      { status: 202 } // Accepted
     );
-    return NextResponse.json({
-      message: 'Project indexing completed.',
-      filesFound: projectFiles.length,
-      filesProcessed,
-      chunksCreated: totalChunksGenerated,
-      errorsEncountered,
-    });
   } catch (error: unknown) {
-    console.error('Critical error during project indexing:', error);
-    const errorMessage =
+    const message =
       error instanceof Error
         ? error.message
-        : 'An unknown critical error occurred';
-    return NextResponse.json(
-      { message: 'Project indexing failed critically.', error: errorMessage },
-      { status: 500 }
-    );
+        : 'Internal server error in POST /api/index-project';
+    console.error('[API index-project] Error:', error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
