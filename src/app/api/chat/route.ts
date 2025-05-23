@@ -13,13 +13,33 @@ import type {
   ArchitecturalPattern as AnalyzerArchitecturalPattern,
   CodePattern as AnalyzerCodePattern,
 } from '@/lib/analyzer/types';
+import { DEV_USER_ID } from '../../../lib/store';
 
-async function authenticateRequest(request: NextRequest) {
+async function authenticateRequest(
+  request: NextRequest
+): Promise<string | null> {
   if (
     process.env.NODE_ENV === 'development' &&
     process.env.BYPASS_AUTH === 'true'
   ) {
+    console.log(
+      '[authenticateRequest] Bypassing auth for development (BYPASS_AUTH).'
+    );
     return 'dev-user';
+  }
+
+  if (process.env.STATIC_USER_ID) {
+    console.log(
+      `[authenticateRequest] Using static user ID from environment variable: ${process.env.STATIC_USER_ID}`
+    );
+    return process.env.STATIC_USER_ID;
+  }
+
+  if (process.env.NODE_ENV === 'development' && DEV_USER_ID) {
+    console.log(
+      `[authenticateRequest] Using DEV_USER_ID for development: ${DEV_USER_ID}`
+    );
+    return DEV_USER_ID;
   }
 
   const authHeader = request.headers.get('authorization');
@@ -112,13 +132,17 @@ export async function POST(req: NextRequest): Promise<Response> {
       lastMessage.content,
       previousMessages,
       appContext,
-      projectContextForAI
+      projectContextForAI,
+      userId
     );
 
     if (result instanceof Response) {
       return result;
     } else {
-      return result.toDataStreamResponse();
+      // Assert the type of result if it's not a Response, assuming it has toDataStreamResponse
+      return (
+        result as { toDataStreamResponse: () => Response }
+      ).toDataStreamResponse();
     }
   } catch (error) {
     console.error('Chat API error:', error);

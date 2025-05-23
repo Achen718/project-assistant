@@ -10,7 +10,7 @@ import {
   getSessionMessages,
 } from './firestore-service';
 
-const DEV_USER_ID = 'dev-user-123';
+export const DEV_USER_ID = 'dev-user-123';
 
 // Update ChatSession to use AI SDK Message type
 interface ChatSession {
