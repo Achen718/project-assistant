@@ -781,63 +781,59 @@ async function analyzeProject(projectPath) {
   return result;
 }
 
-// src/lib/analyzer/context-storage.ts
-
-
-
-
-
-
-
-
-
-
-
-var _firestore = require('firebase/firestore');
-
-// src/lib/firebase.ts
-var _app = require('firebase/app');
-
-var _auth = require('firebase/auth');
-var firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-};
-var clientApp = _app.initializeApp.call(void 0, firebaseConfig);
-var clientDb = _firestore.getFirestore.call(void 0, clientApp);
-var clientAuth = _auth.getAuth.call(void 0, clientApp);
-
-// src/lib/firebase-admin.ts
-var _app3 = require('firebase-admin/app');
-var _auth3 = require('firebase-admin/auth');
-var _firestore3 = require('firebase-admin/firestore');
-var _a;
-var adminApp = _app3.getApps.call(void 0, ).length === 0 ? _app3.initializeApp.call(void 0, {
-  credential: _app3.cert.call(void 0, {
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-    // The private key needs to have newlines replaced
-    privateKey: (_a = process.env.FIREBASE_ADMIN_PRIVATE_KEY) == null ? void 0 : _a.replace(
-      /\\n/g,
-      "\n"
-    )
-  })
-  // databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`,
-}) : _app3.getApps.call(void 0, )[0];
-var adminAuth = _auth3.getAuth.call(void 0, adminApp);
-var adminDb = _firestore3.getFirestore.call(void 0, adminApp);
+// src/lib/supabase/client.ts
+var _supabasejs = require('@supabase/supabase-js');
+var supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+var supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+var supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+if (!supabaseUrl) {
+  throw new Error(
+    "Supabase URL is not defined. Please set NEXT_PUBLIC_SUPABASE_URL in your .env.local file."
+  );
+}
+if (!supabaseServiceRoleKey) {
+  throw new Error(
+    "Supabase service role key is not defined. Please set SUPABASE_SERVICE_ROLE_KEY in your .env.local file."
+  );
+}
+if (!supabaseAnonKey) {
+  throw new Error(
+    "Supabase anon key is not defined. Please set NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
+  );
+}
+var supabaseAdmin = _supabasejs.createClient.call(void 0, 
+  supabaseUrl,
+  supabaseServiceRoleKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  }
+);
+var supabaseAnon = _supabasejs.createClient.call(void 0, 
+  supabaseUrl,
+  supabaseAnonKey
+);
 
 // src/lib/analyzer/context-storage.ts
 var _crypto = require('crypto'); var _crypto2 = _interopRequireDefault(_crypto);
+async function generateEmbeddingFromString(text) {
+  console.warn(
+    "generateEmbeddingFromString: Using placeholder. Input text length:",
+    text.length,
+    "Replace with actual embedding generation."
+  );
+  return Array(384).fill(0);
+}
 function hashProjectPath(projectPath) {
   return _crypto2.default.createHash("sha256").update(projectPath).digest("hex");
 }
 async function storeProjectContext(userId, projectPath, result) {
   const projectHash = hashProjectPath(projectPath);
+  const contextText = JSON.stringify(result.context);
+  const embedding = await generateEmbeddingFromString(contextText);
   const existingContext = await getLatestProjectContext(userId, projectPath);
   if (existingContext) {
     const contextData = {
@@ -845,91 +841,85 @@ async function storeProjectContext(userId, projectPath, result) {
       projectHash,
       userId,
       context: result.context,
-      updatedAt: Date.now(),
+      contextEmbedding: embedding,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
       version: existingContext.version + 1
     };
-    const contextRef = _firestore.doc.call(void 0, clientDb, "projectContexts", existingContext.id);
-    await _firestore.updateDoc.call(void 0, contextRef, contextData);
-    return existingContext.id;
+    const { data, error } = await supabaseAnon.from("projectContexts").update(contextData).eq("id", existingContext.id).select("id").single();
+    if (error) {
+      console.error("Error updating project context in Supabase:", error);
+      throw error;
+    }
+    return (data == null ? void 0 : data.id) || existingContext.id;
   } else {
     const contextData = {
       projectPath,
       projectHash,
       userId,
       context: result.context,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      contextEmbedding: embedding,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
       version: 1
     };
-    const docRef = await _firestore.addDoc.call(void 0, 
-      _firestore.collection.call(void 0, clientDb, "projectContexts"),
-      contextData
-    );
-    return docRef.id;
+    const { data, error } = await supabaseAnon.from("projectContexts").insert([contextData]).select("id").single();
+    if (error) {
+      console.error("Error inserting project context into Supabase:", error);
+      throw error;
+    }
+    if (!data || !data.id) {
+      throw new Error("Failed to insert project context or retrieve ID.");
+    }
+    return data.id;
   }
 }
 async function getLatestProjectContext(userId, projectPath) {
   const projectHash = hashProjectPath(projectPath);
-  const contextQuery = _firestore.query.call(void 0, 
-    _firestore.collection.call(void 0, clientDb, "projectContexts"),
-    _firestore.where.call(void 0, "userId", "==", userId),
-    _firestore.where.call(void 0, "projectHash", "==", projectHash),
-    _firestore.orderBy.call(void 0, "version", "desc"),
-    _firestore.limit.call(void 0, 1)
-  );
-  const snapshot = await _firestore.getDocs.call(void 0, contextQuery);
-  if (snapshot.empty) {
+  const { data, error } = await supabaseAnon.from("projectContexts").select("*").eq("userId", userId).eq("projectHash", projectHash).order("version", { ascending: false }).limit(1).maybeSingle();
+  if (error) {
+    console.error(
+      "Error fetching latest project context from Supabase:",
+      error
+    );
     return null;
   }
-  const doc2 = snapshot.docs[0];
-  return {
-    id: doc2.id,
-    ...doc2.data()
-  };
+  return data;
 }
 async function getUserProjects(userId) {
-  const projectHashes = /* @__PURE__ */ new Set();
-  const latestVersions = /* @__PURE__ */ new Map();
-  const contextQuery = _firestore.query.call(void 0, 
-    _firestore.collection.call(void 0, clientDb, "projectContexts"),
-    _firestore.where.call(void 0, "userId", "==", userId),
-    _firestore.orderBy.call(void 0, "updatedAt", "desc")
-  );
-  const snapshot = await _firestore.getDocs.call(void 0, contextQuery);
-  for (const doc2 of snapshot.docs) {
-    const data = doc2.data();
-    const hash = data.projectHash;
-    if (!projectHashes.has(hash)) {
-      projectHashes.add(hash);
-      latestVersions.set(hash, {
-        id: doc2.id,
-        ...data
-      });
+  const { data, error } = await supabaseAnon.from("projectContexts").select("*").eq("userId", userId).order("projectHash", { ascending: true }).order("version", { ascending: false });
+  if (error) {
+    console.error("Error fetching user projects from Supabase:", error);
+    return [];
+  }
+  if (!data) {
+    return [];
+  }
+  const latestProjects = /* @__PURE__ */ new Map();
+  for (const project of data) {
+    if (!latestProjects.has(project.projectHash)) {
+      latestProjects.set(project.projectHash, project);
     }
   }
-  return Array.from(latestVersions.values());
+  return Array.from(latestProjects.values());
 }
 async function deleteProjectContext(userId, projectPath) {
   const projectHash = hashProjectPath(projectPath);
-  const contextQuery = _firestore.query.call(void 0, 
-    _firestore.collection.call(void 0, clientDb, "projectContexts"),
-    _firestore.where.call(void 0, "userId", "==", userId),
-    _firestore.where.call(void 0, "projectHash", "==", projectHash)
-  );
-  const snapshot = await _firestore.getDocs.call(void 0, contextQuery);
-  const deletePromises = snapshot.docs.map((doc2) => _firestore.deleteDoc.call(void 0, doc2.ref));
-  await Promise.all(deletePromises);
+  const { error } = await supabaseAnon.from("projectContexts").delete().eq("userId", userId).eq("projectHash", projectHash);
+  if (error) {
+    console.error("Error deleting project context from Supabase:", error);
+    throw error;
+  }
 }
 async function getProjectContextById(contextId) {
-  const docRef = adminDb.collection("projectContexts").doc(contextId);
-  const docSnap = await docRef.get();
-  if (!docSnap.exists) {
-    return null;
+  const { data, error } = await supabaseAdmin.from("projectContexts").select("*").eq("id", contextId).single();
+  if (error) {
+    if (error.code === "PGRST116") {
+      return null;
+    }
+    console.error("Error fetching project context by ID from Supabase:", error);
+    throw error;
   }
-  return {
-    id: docSnap.id,
-    ...docSnap.data()
-  };
+  return data;
 }
 
 // src/lib/ai/chains.ts
@@ -995,7 +985,7 @@ async function generateContextAwareResponse(message, history, context, config) {
     return generateStandardResponse(message, llm);
   }
 }
-async function assessContextRelevance(query2, context, llm) {
+async function assessContextRelevance(query, context, llm) {
   if (!context) {
     return 0;
   }
@@ -1007,7 +997,7 @@ async function assessContextRelevance(query2, context, llm) {
     new (0, _messages.HumanMessage)(
       `Project Context: ${contextSummary}
 
-User Query: ${query2}
+User Query: ${query}
 
 Assess the relevance of this context to the query on a scale of 0-10 and explain why briefly.`
     )
@@ -1017,7 +1007,7 @@ Assess the relevance of this context to the query on a scale of 0-10 and explain
   const relevanceMatch = responseText.match(/\b([0-9]|10)\b/);
   return relevanceMatch ? parseInt(relevanceMatch[0], 10) : 5;
 }
-async function generateEnhancedResponse(query2, context, llm) {
+async function generateEnhancedResponse(query, context, llm) {
   const contextString = formatContextSummary(context);
   const contextEnhancedPrompt = _prompts.ChatPromptTemplate.fromMessages([
     new (0, _messages.SystemMessage)(
@@ -1025,17 +1015,17 @@ async function generateEnhancedResponse(query2, context, llm) {
 
 ${contextString}`
     ),
-    new (0, _messages.HumanMessage)(query2)
+    new (0, _messages.HumanMessage)(query)
   ]);
   const response = await contextEnhancedPrompt.pipe(llm).invoke({});
   return response.content.toString();
 }
-async function generateStandardResponse(query2, llm) {
+async function generateStandardResponse(query, llm) {
   const standardPrompt = _prompts.ChatPromptTemplate.fromMessages([
     new (0, _messages.SystemMessage)(
       "You are an AI assistant with expertise in software development. Provide a helpful answer to the user's query."
     ),
-    new (0, _messages.HumanMessage)(query2)
+    new (0, _messages.HumanMessage)(query)
   ]);
   const response = await standardPrompt.pipe(llm).invoke({});
   return response.content.toString();
@@ -1058,6 +1048,26 @@ PROJECT CONTEXT SUMMARY:
 `;
 }
 
+// src/lib/firebase-admin.ts
+var _app = require('firebase-admin/app');
+var _auth = require('firebase-admin/auth');
+var _firestore = require('firebase-admin/firestore');
+var _a;
+var adminApp = _app.getApps.call(void 0, ).length === 0 ? _app.initializeApp.call(void 0, {
+  credential: _app.cert.call(void 0, {
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    // The private key needs to have newlines replaced
+    privateKey: (_a = process.env.FIREBASE_ADMIN_PRIVATE_KEY) == null ? void 0 : _a.replace(
+      /\\n/g,
+      "\n"
+    )
+  })
+  // databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`,
+}) : _app.getApps.call(void 0, )[0];
+var adminAuth = _auth.getAuth.call(void 0, adminApp);
+var adminDb = _firestore.getFirestore.call(void 0, adminApp);
+
 // src/lib/firebase/context-service.ts
 
 async function getProjectContext(projectId) {
@@ -1076,14 +1086,98 @@ async function getProjectContext(projectId) {
   }
 }
 
+// src/lib/ai/embedding-utils.ts
+var _transformers = require('@huggingface/transformers');
+if (_transformers.env.backends.onnx && _transformers.env.backends.onnx.wasm) {
+  _transformers.env.backends.onnx.wasm.numThreads = 1;
+}
+var pipelineInstance = null;
+var MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
+var TASK_TYPE = "feature-extraction";
+async function getPipelineInstance(progress_callback) {
+  if (pipelineInstance === null) {
+    console.log(
+      "[getPipelineInstance] Initializing new pipeline for model:",
+      MODEL_NAME
+    );
+    pipelineInstance = _transformers.pipeline.call(void 0, TASK_TYPE, MODEL_NAME, {
+      progress_callback
+    });
+  }
+  return pipelineInstance;
+}
+async function generateEmbedding(text) {
+  if (!text || text.trim() === "") {
+    console.warn("[generateEmbedding] Called with empty text.");
+    return null;
+  }
+  try {
+    const extractor = await getPipelineInstance();
+    const validText = text.trim() === "" ? " " : text.trim();
+    const output = await extractor(validText, {
+      pooling: "mean",
+      normalize: true
+    });
+    if (output.data && typeof output.data[0] === "number") {
+      return Array.from(output.data);
+    }
+    console.warn("[generateEmbedding] Unexpected output structure:", output);
+    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(
+      `[generateEmbedding] Error with Transformers.js: ${message}`,
+      error
+    );
+    return null;
+  }
+}
+
+// src/lib/rag/supabase-embedding-service.ts
+var MATCH_FUNCTION_NAME = "match_document_chunks_custom";
+async function searchSimilarEmbeddings(projectId, userId, queryEmbedding, matchThreshold = 0.7, matchCount = 10) {
+  if (!queryEmbedding || queryEmbedding.length === 0) {
+    return [];
+  }
+  const { data, error } = await supabaseAdmin.rpc(MATCH_FUNCTION_NAME, {
+    p_query_embedding: queryEmbedding,
+    p_match_threshold: matchThreshold,
+    p_match_count: matchCount,
+    p_project_id: projectId,
+    p_user_id: userId
+  });
+  if (error) {
+    console.error(
+      "[searchSimilarEmbeddings] Error searching embeddings:",
+      error
+    );
+    return [];
+  }
+  return (data || []).map(
+    (row) => ({
+      id: row.id || " ",
+      project_id: row.project_id || projectId,
+      user_id: row.user_id || userId,
+      file_path: row.file_path || "unknown",
+      chunk_text: row.chunk_text || "",
+      start_char_offset: row.start_char_offset,
+      end_char_offset: row.end_char_offset,
+      chunk_sequence_number: row.chunk_sequence_number,
+      similarity: row.similarity,
+      created_at: row.created_at || (/* @__PURE__ */ new Date()).toISOString()
+    })
+  );
+}
+
 // src/lib/ai/server.ts
 var groqApiKey = process.env.GROQ_API_KEY;
 if (!groqApiKey) {
   console.warn("GROQ_API_KEY is not set. Groq features will be unavailable.");
 }
 var activeModel = groqApiKey ? _groq3.groq.call(void 0, "llama3-8b-8192") : null;
-async function processChat(message, history = [], appContext, projectId) {
+async function processChat(message, history = [], appContext, projectId, userId) {
   console.log("[processChat] Entered");
+  console.log(`[processChat] Received userId: ${userId}`);
   try {
     if (projectId) {
       const projectContextData = await getProjectContext(projectId);
@@ -1126,7 +1220,7 @@ async function processChat(message, history = [], appContext, projectId) {
     throw error;
   }
 }
-async function processChatStream(messageContent, history = [], appContext, projectContextInput) {
+async function processChatStream(messageContent, history = [], appContext, projectContextInput, userId) {
   if (!activeModel) {
     console.error("Groq API key not configured. Cannot process stream.");
     return new Response(
@@ -1142,6 +1236,55 @@ async function processChatStream(messageContent, history = [], appContext, proje
     );
   }
   let systemPrompt = "";
+  let augmentedMessageContent = messageContent;
+  if ((projectContextInput == null ? void 0 : projectContextInput.projectId) && userId) {
+    console.log(
+      `[processChatStream] RAG: Attempting to retrieve context for project: ${projectContextInput.projectId}, user: ${userId}`
+    );
+    try {
+      const queryEmbedding = await generateEmbedding(messageContent);
+      if (queryEmbedding) {
+        const similarChunks = await searchSimilarEmbeddings(
+          projectContextInput.projectId,
+          userId,
+          queryEmbedding,
+          0.75,
+          // match_threshold - adjust as needed
+          5
+          // match_count - adjust as needed
+        );
+        if (similarChunks && similarChunks.length > 0) {
+          let ragContext = "\n\n--- Retrieved Context from Codebase (Use this to answer the query): ---\n";
+          similarChunks.forEach((chunk, index) => {
+            ragContext += `Snippet ${index + 1} (from file ${chunk.file_path}, lines ~${chunk.start_char_offset}-${chunk.end_char_offset}):
+\`\`\`
+${chunk.chunk_text}
+\`\`\`
+---
+`;
+          });
+          augmentedMessageContent = `${messageContent}
+${ragContext}`;
+          console.log(
+            "[processChatStream] RAG: Successfully retrieved and prepended context to message."
+          );
+        } else {
+          console.log(
+            "[processChatStream] RAG: No similar chunks found or an error occurred during search."
+          );
+        }
+      } else {
+        console.warn(
+          "[processChatStream] RAG: Could not generate embedding for user query."
+        );
+      }
+    } catch (ragError) {
+      console.error(
+        "[processChatStream] RAG: Error during context retrieval:",
+        ragError
+      );
+    }
+  }
   if (projectContextInput) {
     try {
       systemPrompt = createSystemPromptWithContext(
@@ -1158,7 +1301,7 @@ async function processChatStream(messageContent, history = [], appContext, proje
   const formattedMessages = [
     { id: crypto.randomUUID(), role: "system", content: systemPrompt },
     ...history,
-    { id: crypto.randomUUID(), role: "user", content: messageContent }
+    { id: crypto.randomUUID(), role: "user", content: augmentedMessageContent }
   ];
   try {
     const result = await _ai.streamText.call(void 0, {

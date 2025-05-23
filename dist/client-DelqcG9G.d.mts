@@ -131,29 +131,32 @@ interface StoredProjectContext {
     projectHash: string;
     userId: string;
     context: AnalyzerProjectContext;
-    createdAt: number;
-    updatedAt: number;
+    contextEmbedding?: number[];
+    createdAt: string;
+    updatedAt: string;
     version: number;
 }
 /**
- * Store analysis results in Firestore
+ * Store analysis results in Supabase
  */
 declare function storeProjectContext(userId: string, projectPath: string, result: AnalyzerResult): Promise<string>;
 /**
- * Get the latest context for a project
+ * Get the latest context for a project from Supabase
  */
 declare function getLatestProjectContext(userId: string, projectPath: string): Promise<StoredProjectContext | null>;
 /**
- * Get all projects analyzed by a user
+ * Get all projects analyzed by a user from Supabase
  */
 declare function getUserProjects(userId: string): Promise<StoredProjectContext[]>;
 /**
- * Delete a project context and all its versions
+ * Delete a project context and all its versions from Supabase
  */
 declare function deleteProjectContext(userId: string, projectPath: string): Promise<void>;
 /**
- * Admin function to get project context by ID
+ * Admin function to get project context by ID from Supabase
  * This is useful for API routes where the user ID might be coming from auth
+ * Note: Assumes RLS policies are set up in Supabase to allow this access,
+ * or that the Supabase client is configured with service_role key for admin operations.
  */
 declare function getProjectContextById(contextId: string): Promise<StoredProjectContext | null>;
 
