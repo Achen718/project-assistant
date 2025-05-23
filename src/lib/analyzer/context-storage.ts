@@ -1,17 +1,4 @@
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  deleteDoc,
-  limit,
-} from 'firebase/firestore';
-import { clientDb } from '../firebase';
-import { adminDb } from '../firebase-admin';
+import { supabaseAdmin, supabaseAnon as supabase } from '../supabase/client';
 import {
   AnalyzerResult,
   AnalyzerProjectContext as ProjectContext,
@@ -28,9 +15,23 @@ export interface StoredProjectContext {
   projectHash: string;
   userId: string;
   context: ProjectContext;
-  createdAt: number;
-  updatedAt: number;
+  contextEmbedding?: number[];
+  createdAt: string;
+  updatedAt: string;
   version: number;
+}
+
+// Placeholder for actual embedding generation
+async function generateEmbeddingFromString(text: string): Promise<number[]> {
+  // In a real scenario, this would call an embedding model/service.
+  // For Supabase, you might use an Edge Function that hosts an embedding model.
+  console.warn(
+    'generateEmbeddingFromString: Using placeholder. Input text length:',
+    text.length,
+    'Replace with actual embedding generation.'
+  );
+  // Example: return a fixed-size array of zeros (e.g., for a 384-dimension model)
+  return Array(384).fill(0);
 }
 
 /**
@@ -41,7 +42,7 @@ function hashProjectPath(projectPath: string): string {
 }
 
 /**
- * Store analysis results in Firestore
+ * Store analysis results in Supabase
  */
 export async function storeProjectContext(
   userId: string,
@@ -49,6 +50,12 @@ export async function storeProjectContext(
   result: AnalyzerResult
 ): Promise<string> {
   const projectHash = hashProjectPath(projectPath);
+
+  // Generate embedding for the context
+  // Convert context object to a string representation for embedding.
+  // This is a simplistic approach; you might want a more sophisticated way to represent the context as text.
+  const contextText = JSON.stringify(result.context);
+  const embedding = await generateEmbeddingFromString(contextText);
 
   const existingContext = await getLatestProjectContext(userId, projectPath);
 
@@ -58,34 +65,54 @@ export async function storeProjectContext(
       projectHash,
       userId,
       context: result.context,
-      updatedAt: Date.now(),
+      contextEmbedding: embedding,
+      updatedAt: new Date().toISOString(),
       version: existingContext.version + 1,
     };
 
-    const contextRef = doc(clientDb, 'projectContexts', existingContext.id);
-    await updateDoc(contextRef, contextData);
-    return existingContext.id;
+    const { data, error } = await supabase
+      .from('projectContexts')
+      .update(contextData)
+      .eq('id', existingContext.id)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Error updating project context in Supabase:', error);
+      throw error;
+    }
+    return data?.id || existingContext.id;
   } else {
     const contextData = {
       projectPath,
       projectHash,
       userId,
       context: result.context,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      contextEmbedding: embedding,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       version: 1,
     };
 
-    const docRef = await addDoc(
-      collection(clientDb, 'projectContexts'),
-      contextData
-    );
-    return docRef.id;
+    const { data, error } = await supabase
+      .from('projectContexts')
+      .insert([contextData])
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Error inserting project context into Supabase:', error);
+      throw error;
+    }
+    if (!data || !data.id) {
+      throw new Error('Failed to insert project context or retrieve ID.');
+    }
+    return data.id;
   }
 }
 
 /**
- * Get the latest context for a project
+ * Get the latest context for a project from Supabase
  */
 export async function getLatestProjectContext(
   userId: string,
@@ -93,62 +120,90 @@ export async function getLatestProjectContext(
 ): Promise<StoredProjectContext | null> {
   const projectHash = hashProjectPath(projectPath);
 
-  const contextQuery = query(
-    collection(clientDb, 'projectContexts'),
-    where('userId', '==', userId),
-    where('projectHash', '==', projectHash),
-    orderBy('version', 'desc'),
-    limit(1)
-  );
+  const { data, error } = await supabase
+    .from('projectContexts')
+    .select('*')
+    .eq('userId', userId)
+    .eq('projectHash', projectHash)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle(); // Use maybeSingle to return null if no row is found
 
-  const snapshot = await getDocs(contextQuery);
-
-  if (snapshot.empty) {
+  if (error) {
+    console.error(
+      'Error fetching latest project context from Supabase:',
+      error
+    );
+    // It might be better to throw the error or handle it based on application needs
     return null;
   }
 
-  const doc = snapshot.docs[0];
-  return {
-    id: doc.id,
-    ...doc.data(),
-  } as StoredProjectContext;
+  return data as StoredProjectContext | null;
 }
 
 /**
- * Get all projects analyzed by a user
+ * Get all projects analyzed by a user from Supabase
  */
 export async function getUserProjects(
   userId: string
 ): Promise<StoredProjectContext[]> {
-  const projectHashes = new Set<string>();
-  const latestVersions = new Map<string, StoredProjectContext>();
+  // const projectHashes = new Set<string>();
+  // const latestVersions = new Map<string, StoredProjectContext>();
+  //
+  // const contextQuery = query(
+  //   collection(clientDb, 'projectContexts'),
+  //   where('userId', '==', userId),
+  //   orderBy('updatedAt', 'desc')
+  // );
+  //
+  // const snapshot = await getDocs(contextQuery);
+  //
+  // for (const doc of snapshot.docs) {
+  //   const data = doc.data() as Omit<StoredProjectContext, 'id'>;
+  //   const hash = data.projectHash;
+  //
+  //   if (!projectHashes.has(hash)) {
+  //     projectHashes.add(hash);
+  //     latestVersions.set(hash, {
+  //       id: doc.id,
+  //       ...data,
+  //     } as StoredProjectContext);
+  //   }
+  // }
+  //
+  // return Array.from(latestVersions.values());
 
-  const contextQuery = query(
-    collection(clientDb, 'projectContexts'),
-    where('userId', '==', userId),
-    orderBy('updatedAt', 'desc')
-  );
+  // Fetch all projects by userId, then filter for the latest version of each projectHash client-side.
+  // This is simpler than a complex SQL query for this specific logic if performance is not critical.
+  const { data, error } = await supabase
+    .from('projectContexts')
+    .select('*')
+    .eq('userId', userId)
+    .order('projectHash', { ascending: true })
+    .order('version', { ascending: false });
 
-  const snapshot = await getDocs(contextQuery);
+  if (error) {
+    console.error('Error fetching user projects from Supabase:', error);
+    return [];
+  }
 
-  for (const doc of snapshot.docs) {
-    const data = doc.data() as Omit<StoredProjectContext, 'id'>;
-    const hash = data.projectHash;
+  if (!data) {
+    return [];
+  }
 
-    if (!projectHashes.has(hash)) {
-      projectHashes.add(hash);
-      latestVersions.set(hash, {
-        id: doc.id,
-        ...data,
-      } as StoredProjectContext);
+  // Filter to get only the latest version of each project
+  const latestProjects = new Map<string, StoredProjectContext>();
+  for (const project of data as StoredProjectContext[]) {
+    if (!latestProjects.has(project.projectHash)) {
+      latestProjects.set(project.projectHash, project);
     }
   }
 
-  return Array.from(latestVersions.values());
+  return Array.from(latestProjects.values());
 }
 
 /**
- * Delete a project context and all its versions
+ * Delete a project context and all its versions from Supabase
  */
 export async function deleteProjectContext(
   userId: string,
@@ -156,34 +211,89 @@ export async function deleteProjectContext(
 ): Promise<void> {
   const projectHash = hashProjectPath(projectPath);
 
-  const contextQuery = query(
-    collection(clientDb, 'projectContexts'),
-    where('userId', '==', userId),
-    where('projectHash', '==', projectHash)
-  );
+  // const contextQuery = query(
+  //   collection(clientDb, 'projectContexts'),
+  //   where('userId', '==', userId),
+  //   where('projectHash', '==', projectHash)
+  // );
+  //
+  // const snapshot = await getDocs(contextQuery);
+  //
+  // const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
+  // await Promise.all(deletePromises);
 
-  const snapshot = await getDocs(contextQuery);
+  const { error } = await supabase
+    .from('projectContexts')
+    .delete()
+    .eq('userId', userId)
+    .eq('projectHash', projectHash);
 
-  const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
-  await Promise.all(deletePromises);
+  if (error) {
+    console.error('Error deleting project context from Supabase:', error);
+    throw error; // Or handle more gracefully depending on requirements
+  }
 }
 
 /**
- * Admin function to get project context by ID
+ * Admin function to get project context by ID from Supabase
  * This is useful for API routes where the user ID might be coming from auth
+ * Note: Assumes RLS policies are set up in Supabase to allow this access,
+ * or that the Supabase client is configured with service_role key for admin operations.
  */
 export async function getProjectContextById(
   contextId: string
 ): Promise<StoredProjectContext | null> {
-  const docRef = adminDb.collection('projectContexts').doc(contextId);
-  const docSnap = await docRef.get();
+  // const docRef = adminDb.collection('projectContexts').doc(contextId);
+  // const docSnap = await docRef.get();
+  //
+  // if (!docSnap.exists) {
+  //   return null;
+  // }
+  //
+  // return {
+  //   id: docSnap.id,
+  //   ...docSnap.data(),
+  // } as StoredProjectContext;
 
-  if (!docSnap.exists) {
-    return null;
+  const { data, error } = await supabaseAdmin
+    .from('projectContexts')
+    .select('*')
+    .eq('id', contextId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    console.error('Error fetching project context by ID from Supabase:', error);
+    throw error;
   }
 
-  return {
-    id: docSnap.id,
-    ...docSnap.data(),
-  } as StoredProjectContext;
+  return data as StoredProjectContext | null;
+}
+
+export async function findSimilarProjectContexts(
+  userId: string,
+  embedding: number[],
+  matchCount: number = 5,
+  matchThreshold: number = 0.7 // Adjust as needed
+): Promise<(StoredProjectContext & { similarity: number })[]> {
+  if (!embedding || embedding.length === 0) {
+    console.warn('findSimilarProjectContexts: Empty embedding provided.');
+    return [];
+  }
+
+  const { data, error } = await supabase.rpc('match_project_contexts', {
+    p_user_id: userId,
+    query_embedding: embedding,
+    match_threshold: matchThreshold,
+    match_count: matchCount,
+  });
+
+  if (error) {
+    console.error('Error finding similar project contexts:', error);
+    throw error;
+  }
+
+  return data || [];
 }
