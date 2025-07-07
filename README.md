@@ -4,6 +4,21 @@
 
 ---
 
+## Table of Contents
+1. [The Problem](#1-the-problem-my-workflow-learning-objectives--ai-assisted-development-exploration)
+2. [Solution Overview](#2-solution-overview-what-the-ai-assistant-does-for-me)
+3. [Technical Deep Dive & Core Learnings](#3-technical-deep-dive--core-learnings)
+    - [Agentic Architecture Explored](#agentic-architecture-explored)
+    - [Technologies & Tools](#technologies--tools-gained-practical-understanding-of)
+    - [Prompt Engineering Insights](#prompt-engineering-insights)
+    - [Reverse Engineering Methodology](#reverse-engineering-methodology-for-ai-assisted-development)
+    - [Challenges & Solutions](#challenges--solutions)
+4. [Impact](#4-impact-on-my-learning--workflow)
+5. [Installation & Usage](#5-installation--usage)
+6. [Connect with Me](#6-connect-with-me)
+
+---
+
 ## 1. The Problem (My Workflow, Learning Objectives, & AI-Assisted Development Exploration)
 
 Beyond the general challenge of integrating fragmented personal development projects (e.g., an Email Builder, a Messaging Platform), the `project-assistant` was primarily conceived as a dedicated learning laboratory for understanding the practicalities and nuances of AI-assisted development and agentic systems themselves.
