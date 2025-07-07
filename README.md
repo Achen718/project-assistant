@@ -1,6 +1,6 @@
 # project-assistant: An Agentic AI Integration Hub
 
-*Tagline: A personal AI agent built as a strategic experiment to gain practical understanding of agentic architecture, AI-assisted development methodologies, and complex prompt engineering.*
+*A personal AI agent built as a strategic experiment to gain practical understanding of agentic architecture, AI-assisted development methodologies, and complex prompt engineering.*
 
 ---
 
@@ -77,6 +77,143 @@ It now serves as a foundational template for future AI-driven projects, allowing
 
 ## 5. Installation & Usage
 
+This section provides instructions for setting up the project for local development and for using the distributable SDK in a separate application.
+
+### 1. Running the Development Server
+
+Follow these instructions to run the Next.js application locally.
+
+#### Prerequisites
+
+- **Node.js**: `20.11.1` or later.
+- **Package Manager**: `npm`, `yarn`, `pnpm`, or `bun`.
+
+#### Setup
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <your-repo-url>
+    cd ai-project-assistant
+    ```
+
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+3.  **Set up environment variables:**
+    Create a new file named `.env.local` in the project root and add the following content. You will need to get these credentials from the respective services (Firebase, Supabase, OpenAI, etc.).
+
+    ```sh
+    # .env.local - Fill in your credentials from the respective services.
+
+    # Firebase Configuration (https://console.firebase.google.com/)
+    # Used for user authentication.
+    NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-public-api-key"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-firebase-auth-domain"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-firebase-storage-bucket"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your-firebase-messaging-sender-id"
+    NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+
+    # Firebase Admin SDK (Server-side)
+    # Base64-encoded JSON of your Firebase service account key.
+    # How to get it: Project settings -> Service accounts -> Generate new private key
+    # How to encode (on macOS/Linux): cat your-service-account-file.json | base64
+    FIREBASE_SERVICE_ACCOUNT_JSON="your-base64-encoded-service-account-json"
+
+    # Supabase Configuration (https://supabase.com/)
+    # Used for database storage (projects, embeddings).
+    NEXT_PUBLIC_SUPABASE_URL="https://your-project-ref.supabase.co"
+    NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-public-anon-key"
+    SUPABASE_SERVICE_ROLE_KEY="your-supabase-secret-service-role-key" # For server-side admin tasks
+
+    # AI Provider API Keys
+    # At least one is required to power the AI agent.
+    OPENAI_API_KEY="sk-..." # From https://platform.openai.com/api-keys
+    GROQ_API_KEY="gsk_..." # From https://console.groq.com/keys
+
+    # Application API Key (Recommended)
+    # A static API key to protect your API endpoints.
+    STATIC_API_KEY="your-long-and-secret-static-api-key"
+    ```
+
+4.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
+    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+### 2. Using the SDK in an External Application
+
+To use the AI Project Assistant SDK in your own application, follow these steps.
+
+#### Installation
+
+Install the package from npm (once it is published):
+
+```bash
+npm install ai-project-assistant
+```
+
+#### Peer Dependencies
+
+Ensure your project has the required peer dependencies installed:
+- `react`: `^19.1.0`
+- `react-dom`: `^19.1.0`
+
+#### Example Usage
+
+Initialize the client-side SDK and use its methods and components.
+
+```tsx
+// src/components/MyChatComponent.tsx
+
+import { createAIAssistant } from 'ai-project-assistant/client';
+import { AIChatComponent } from 'ai-project-assistant';
+import { useCallback } from 'react';
+
+// This function should be implemented in your application's authentication logic.
+// It needs to return the JWT of the currently logged-in user.
+const getMyUserAuthToken = useCallback(async (): Promise<string | null> => {
+  // Replace this with your actual auth provider logic (e.g., Firebase, Auth0)
+  // const user = await getCurrentUser();
+  // return user?.getIdToken();
+  return 'user-jwt-token';
+}, []);
+
+// 1. Initialize the Assistant Client
+const aiAssistant = createAIAssistant({
+  // The URL where your AI Project Assistant backend is deployed
+  apiUrl: 'https://your-backend-deployment.com',
+
+  // Provide a function that returns the user's authentication token
+  getIdToken: getMyUserAuthToken,
+
+  // OR, for server-to-server scenarios, you can use a static API key
+  // staticApiKey: 'your-static-api-key'
+});
+
+// 2. You can now use the client to interact with the API directly
+async function fetchUserSessions() {
+  const sessions = await aiAssistant.getSessions();
+  console.log('User sessions:', sessions);
+}
+
+// 3. Render the pre-built UI components
+// You would typically wrap your application with a context provider
+// to make the `aiAssistant` instance available to components like `AIChatComponent`.
+function MyChatView() {
+  return (
+    <div>
+      <h1>My Application Chat</h1>
+      {/* The AIChatComponent is designed to work with the SDK.
+          You'll need to adapt it or use a provider to pass the client instance. */}
+      <AIChatComponent />
+    </div>
+  );
+}
+```
 ---
 
 ## 6. Connect with Me
